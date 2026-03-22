@@ -9,6 +9,12 @@ ClawTasker CEO Console is a **standalone, local-first mission-control platform**
 
 ---
 
+## Screenshots
+
+![ClawTasker Dashboard](docs/screenshots/dashboard.png)
+
+---
+
 ## Installation
 
 ### Quick Start (Standalone)
