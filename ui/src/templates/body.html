@@ -1,0 +1,567 @@
+</head>
+<body>
+
+<!-- Modal overlay -->
+<div id="MO" class="mo" style="display:none" onclick="if(event.target===this)closeMo()">
+  <div class="mo-box" id="MB"></div>
+</div>
+
+<div class="shell">
+<!-- ── SIDEBAR ── -->
+<aside class="sb">
+  <div class="sb-brand">
+    <div class="sb-logo">CT<br><span style="font-size:8px">⚡</span></div>
+    <div><div class="sb-title">ClawTasker</div><div class="sb-sub">v1.5.0 · CEO Console</div></div>
+  </div>
+  <div class="nav-sec">
+    <div class="nav-lbl">Operate</div>
+    <button class="nv on" onclick="goV('dash',this)"><svg viewBox="0 0 24 24"><path d="M4 13h7V4H4v9zm9 7h7v-6h-7v6zM4 20h7v-5H4v5zm9-8h7V4h-7v8z"/></svg><span>Dashboard</span></button>
+    <button class="nv" onclick="goV('team',this)"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-3-3.87M16 3.13A4 4 0 0 1 16 11"/></svg><span>Team</span></button>
+    <button class="nv" onclick="goV('council',this)"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Council</span></button>
+    <button class="nv" onclick="goV('cal',this)"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><span>Calendar</span></button>
+  </div>
+  <div class="nav-sec">
+    <div class="nav-lbl">Work</div>
+    <button class="nv" onclick="goV('board',this)"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="5" height="14" rx="1"/><rect x="10" y="5" width="5" height="9" rx="1"/><rect x="16" y="5" width="4" height="12" rx="1"/></svg><span>Board</span></button>
+    <button class="nv" onclick="goV('pipeline',this)"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 4-4-8-3 4H2"/></svg><span>Pipeline</span></button>
+    <button class="nv" onclick="goV('approvals',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Approvals</span></button>
+    <button class="nv" id="NV_MISS" onclick="goV('miss',this)"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Missions</span></button>
+    <button class="nv" onclick="goV('conv',this)"><svg viewBox="0 0 24 24"><path d="M8 10h8M8 14h5"/><path d="M4 5h16v11H7l-3 3V5z"/></svg><span>Conversations</span></button>
+  </div>
+  <div class="nav-sec">
+    <div class="nav-lbl">Observe</div>
+    <button class="nv" onclick="goV('off',this)"><svg viewBox="0 0 24 24"><path d="M4 10l8-6 8 6"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/></svg><span>Office</span></button>
+    <button class="nv" onclick="goV('acc',this)"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span>Access</span></button>
+  </div>
+  <div class="nav-sec">
+    <div class="nav-lbl">Quality</div>
+    <button class="nv" onclick="goV('req',this)"><svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 5h6"/><path d="M9 12h6M9 16h6"/></svg><span>Requirements</span></button>
+    <button class="nv" onclick="goV('tc',this)"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Test Cases</span></button>
+  </div>
+  <div class="nav-sec">
+    <div class="nav-lbl">Settings</div>
+    <button class="nv" onclick="goV('app',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a9 9 0 0 0-12.73 0M4.93 19.07a9 9 0 0 0 12.73 0"/></svg><span>Appearance</span></button>
+  </div>
+  <div class="sb-foot">
+    <div class="sb-meta"><span style="display:flex;align-items:center;gap:5px"><span class="dot"></span>Live</span><span id="API_STATUS">API ✓</span></span><span id="VER_BADGE">v1.5.0</span></div>
+    <button class="sbb p" onclick="openMissionForm(null)">+ New mission</button>
+    <button class="sbb" onclick="alert('Set: CLAWTASKER_API_TOKEN env var before starting server.py')">Set token</button>
+  </div>
+</aside>
+
+<!-- ── TOPBAR ── -->
+<header class="tb">
+  <div class="tb-cr"><span class="tbs" id="TB_S">Command Center</span><span class="tbsep">/</span><span class="tbp" id="TB_P">Dashboard</span></div>
+  <div class="tb-r">
+    <div class="pill live"><span class="dot"></span>Live · <span id="AGENT_COUNT_PILL">0</span> agents</div>
+    <div class="pill ver">v1.5.0</div>
+    <button id="NOTIF_BELL" onclick="toggleNotifDrawer()" style="position:relative;padding:5px 10px;border-radius:var(--rsm);border:1px solid var(--bd);background:var(--bg3);color:var(--mut);font-size:.82rem;cursor:pointer;transition:all .12s" title="Notifications">
+      🔔<span id="NOTIF_BADGE" style="display:none;position:absolute;top:-3px;right:-3px;background:var(--dn);color:#fff;border-radius:50%;width:14px;height:14px;font-size:.55rem;font-weight:700;display:none;align-items:center;justify-content:center;line-height:1">0</span>
+    </button>
+    <div class="pill soft" id="MODE_P" style="cursor:pointer" onclick="toggleMode()">Dark</div>
+  </div>
+  <!-- Notification Drawer -->
+  <div id="NOTIF_DRAWER" style="display:none;position:fixed;top:52px;right:0;width:340px;max-height:calc(100vh - 60px);background:var(--card);border:1px solid var(--bds);border-top:none;border-radius:0 0 0 var(--rlg);z-index:500;overflow-y:auto;box-shadow:-4px 4px 24px rgba(0,0,0,.5)">
+    <div style="padding:12px 14px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:.82rem;font-weight:700;color:var(--txs)">Notifications</div>
+      <button onclick="dismissAllNotifications()" style="font-size:.68rem;color:var(--mut);background:transparent;border:none;cursor:pointer;padding:2px 6px;border-radius:4px">Dismiss all</button>
+    </div>
+    <div id="NOTIF_LIST" style="padding:6px 0"></div>
+  </div>
+</header>
+
+<!-- ── CONTENT ── -->
+<div class="ct">
+
+<!-- DASHBOARD -->
+<div id="V_dash" class="vw on">
+  <div class="g2">
+    <div class="pn">
+      <div class="ey">CEO overview</div>
+      <div class="pt">One company. One command deck.</div>
+      <div style="font-size:.74rem;color:var(--mut);margin-top:6px;line-height:1.6">Human-first control room for OpenClaw AI agent companies — use what helps, skip what doesn't. No methodology enforced. Works for software, business plans, coaching programmes, manual projects, or anything else.</div>
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+        <span class="chip ok" style="font-size:.63rem">✓ Software projects</span>
+        <span class="chip in" style="font-size:.63rem">✓ Business plans</span>
+        <span class="chip pu" style="font-size:.63rem">✓ Coaching programmes</span>
+        <span class="chip wn" style="font-size:.63rem">✓ Manual projects</span>
+        <span class="chip ac" style="font-size:.63rem">✓ Custom initiatives</span>
+      </div>
+      <button onclick="openOnboarding()" style="margin-top:10px;font-size:.72rem;padding:4px 12px;border-radius:var(--rsm);border:1px solid var(--bds);background:transparent;color:var(--mut);cursor:pointer;transition:all .12s" onmouseover="this.style.borderColor='var(--ac)';this.style.color='var(--ac)'" onmouseout="this.style.borderColor='var(--bds)';this.style.color='var(--mut)'">📋 Platform guide & onboarding</button>
+      <div class="met4" id="METRICS_ROW"></div>
+    </div>
+    <div class="pn">
+      <div class="ph"><div><div class="ey">Attention queue</div><div class="pt">CEO action required</div></div><span class="chip">Exception-only</span></div>
+      <div id="AQ_LIST"></div>
+    </div>
+  </div>
+  <div class="pn">
+    <div class="ph"><div><div class="ey">Project development health</div><div class="pt">Tasks per project · blockers · completion</div></div></div>
+    <div id="PROJ_HEALTH" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px"></div>
+  </div>
+  <!-- Active focus period card -->
+  <div class="pn" id="ACTIVE_SPRINT_CARD" style="display:none">
+    <div class="ph"><div><div class="ey">Active focus period</div><div class="pt" id="ASC_NAME">Sprint</div></div><span class="chip ac" id="ASC_STATUS">active</span></div>
+    <div style="font-size:.76rem;color:var(--mut);margin-bottom:10px" id="ASC_GOAL"></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px" id="ASC_METRICS"></div>
+    <div style="height:8px;background:var(--bds);border-radius:4px;overflow:hidden">
+      <div id="ASC_BAR" style="height:100%;background:linear-gradient(90deg,var(--ac),var(--ac2));border-radius:4px;transition:width .5s;width:0%"></div>
+    </div>
+  </div>
+  <div class="g3">
+    <div class="pn">
+      <div class="ph"><div><div class="ey">Specialist load</div><div class="pt">Work by type</div></div></div>
+      <div class="srow"><span>Planning</span><div class="sbar-bg"><div class="sbar" style="width:90%;background:#14b8a6"></div></div></div>
+      <div class="srow"><span>Code</span><div class="sbar-bg"><div class="sbar" style="width:75%;background:#4d8bff"></div></div></div>
+      <div class="srow"><span>Research</span><div class="sbar-bg"><div class="sbar" style="width:85%;background:#8b5cf6"></div></div></div>
+      <div class="srow"><span>Ops</span><div class="sbar-bg"><div class="sbar" style="width:60%;background:#f5a623"></div></div></div>
+      <div class="srow"><span>QA</span><div class="sbar-bg"><div class="sbar" style="width:70%;background:#22d160"></div></div></div>
+      <div class="srow"><span>Design</span><div class="sbar-bg"><div class="sbar" style="width:65%;background:#ec4899"></div></div></div>
+    </div>
+    <div class="pn">
+      <div class="ph"><div><div class="ey">Projects</div><div class="pt">Shared workspaces</div></div></div>
+      <div id="PROJ_LIST"></div>
+    </div>
+    <div class="pn">
+      <div class="ph"><div><div class="ey">Mission feed</div><div class="pt">Recent activity</div></div></div>
+      <div id="MISS_FEED"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TEAM -->
+<div id="V_team" class="vw">
+  <div class="pn">
+    <div class="ph">
+      <div><div class="ey">Organisation chart</div><div class="pt">Click name/role to edit inline · Edit button for full modal · Decommission to take offline</div></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="chip" id="AGENT_COUNT_CHIP">0 agents</span>
+        <button class="sbb p" onclick="openAddAgentForm()">+ Add agent</button>
+        <button class="mc-edit" onclick="openOrgConfig()">⚙ Configure</button>
+      </div>
+    </div>
+    <div id="ORG_CONFIG" class="mc-form" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:.88rem;font-weight:700;color:var(--txs)">Organisation configuration</div>
+        <button onclick="closeOrgConfig()" style="color:var(--mut);font-size:1.1rem">×</button>
+      </div>
+      <div class="mf-grid">
+        <div><label class="mf-lbl">CEO display name</label><input class="mf-in" id="OC_CEO_NAME" placeholder="Your name"></div>
+        <div><label class="mf-lbl">CEO role title</label><input class="mf-in" id="OC_CEO_ROLE" placeholder="CEO / Human operator"></div>
+        <div><label class="mf-lbl">Company name</label><input class="mf-in" id="OC_CO_NAME" placeholder="Company name"></div>
+        <div><label class="mf-lbl">Chief agent</label><select class="mf-in" id="OC_CHIEF"><option value="">— select —</option></select></div>
+        <div><label class="mf-lbl">API write token</label><input class="mf-in" id="OC_TOKEN" type="password" placeholder="change-me-local"></div>
+      </div>
+      <div class="mf-actions">
+        <button class="mf-save" onclick="saveOrgConfig()">Save configuration</button>
+        <button class="mf-cancel" onclick="closeOrgConfig()">Cancel</button>
+      </div>
+    </div>
+    <div id="ORG"></div>
+  </div>
+  <div class="pn">
+    <div class="ph"><div><div class="ey">Capability matrix</div><div class="pt">Agent skills and specialisms</div></div><span class="chip" id="AGENT_COUNT_CHIP">0 agents</span></div>
+    <div id="CAP_MATRIX" style="overflow-x:auto"></div>
+  </div>
+  <div class="pn">
+    <div class="ph"><div><div class="ey">Agent roster</div><div class="pt">Status · heartbeat · click portrait → set CEO avatar · sprite icon → change character</div></div><span class="chip ok">Active</span></div>
+    <div class="ag-grid" id="AG_GRID"></div>
+  </div>
+</div>
+
+<!-- CALENDAR -->
+<div id="V_cal" class="vw">
+  <div class="pn">
+    <div class="ph">
+      <div><div class="ey">Schedule</div><div class="pt" id="CAL_TITLE">Week schedule</div></div>
+      <div class="cal-vtabs">
+        <button class="cal-vtab on" onclick="setCalV('week',this)">Week</button>
+        <button class="cal-vtab" onclick="setCalV('month',this)">Month</button>
+        <button class="cal-vtab" onclick="setCalV('year',this)">Year</button>
+      </div>
+    </div>
+    <div class="cal-nav">
+      <button class="cal-nb" onclick="calNav(-1)">‹ Prev</button>
+      <div class="cal-period" id="CAL_PER"></div>
+      <button class="cal-nb" onclick="calNav(1)">Next ›</button>
+      <button class="cal-nb" onclick="calToday()">Today</button>
+      <button class="sbb p" onclick="openCalEventForm()" style="margin-left:auto">+ Add event</button>
+    </div>
+    <div id="CAL_WEEK_TABS" class="cal-tabs"></div>
+    <div id="CAL_ALWAYS" class="cal-always">
+      <div style="display:flex;align-items:center;gap:6px;font-size:.65rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ac);white-space:nowrap;font-family:'JetBrains Mono',monospace"><span class="dot"></span>Always Running</div>
+      <span style="background:rgba(94,232,210,.08);border:1px solid rgba(94,232,210,.18);border-radius:20px;color:var(--tx);font-size:.7rem;padding:2px 10px">Chief kickoff · 06:55</span>
+      <span style="background:rgba(94,232,210,.08);border:1px solid rgba(94,232,210,.18);border-radius:20px;color:var(--tx);font-size:.7rem;padding:2px 10px">8AM briefing · 08:00</span>
+      <span style="background:rgba(94,232,210,.08);border:1px solid rgba(94,232,210,.18);border-radius:20px;color:var(--tx);font-size:.7rem;padding:2px 10px">Noon radar · 11:30</span>
+      <span style="background:rgba(94,232,210,.08);border:1px solid rgba(94,232,210,.18);border-radius:20px;color:var(--tx);font-size:.7rem;padding:2px 10px">Validation sweep · 16:00</span>
+    </div>
+    <div id="CAL_PANEL" style="display:flex;flex-direction:column"></div>
+  </div>
+</div>
+
+<!-- BOARD -->
+<div id="V_board" class="vw">
+  <div class="pn">
+    <div class="ph"><div><div class="ey">Progression board</div><div class="pt">Backlog → Ready → In Progress → Validation → Done</div></div><span class="chip" id="BOARD_COUNT">0 tasks</span></div>
+    <!-- Focus period -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+      <span class="bf-lbl">Sprint:</span>
+      <select class="bf-sel" id="BF_SPRINT" onchange="renderBoard()" style="min-width:200px">
+        <option value="">All tasks</option>
+      </select>
+      <div id="SPRINT_BURNDOWN" style="display:none;flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--bd);border-radius:var(--rsm);padding:6px 12px">
+        <div style="display:flex;justify-content:space-between;font-size:.68rem;color:var(--mut);margin-bottom:4px">
+          <span id="SB_LABEL">Focus goal</span>
+          <span id="SB_PTS">0/0 pts</span>
+        </div>
+        <div style="height:5px;background:var(--bds);border-radius:3px;overflow:hidden">
+          <div id="SB_BAR" style="height:100%;background:var(--ac);width:0%;border-radius:3px;transition:width .5s"></div>
+        </div>
+      </div>
+      <button class="cal-nb" onclick="openSprintForm()" style="white-space:nowrap">+ New focus period</button>
+    </div>
+    <!-- Sprint form -->
+    <div id="SPRINT_FORM" class="mc-form" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:.88rem;font-weight:700;color:var(--txs)">New focus period</div>
+        <button onclick="closeSprintForm()" style="color:var(--mut);font-size:1.1rem">×</button>
+      </div>
+      <div class="mf-grid">
+        <div><label class="mf-lbl">Name *</label><input class="mf-in" id="SF_NAME" placeholder="Sprint 2"></div>
+        <div><label class="mf-lbl">Project</label>
+          <select class="mf-in" id="SF_PROJ">
+            <option value="ceo-console">CEO Console</option>
+            <option value="market-radar">Market Radar</option>
+            <option value="atlas-core">Atlas Core</option>
+          </select></div>
+        <div><label class="mf-lbl">Start date</label><input class="mf-in" id="SF_START" type="date"></div>
+        <div><label class="mf-lbl">End date</label><input class="mf-in" id="SF_END" type="date"></div>
+        <div style="grid-column:1/-1"><label class="mf-lbl">Focus goal</label><input class="mf-in" id="SF_GOAL" placeholder="What will we achieve this sprint?"></div>
+      </div>
+      <div class="mf-actions">
+        <button class="mf-save" onclick="submitSprintForm()">Create sprint</button>
+        <button class="mf-cancel" onclick="closeSprintForm()">Cancel</button>
+      </div>
+    </div>
+    <div class="board-filters">
+      <span class="bf-lbl">Project:</span>
+      <select class="bf-sel" id="BF_PROJ" onchange="renderBoard()"><option value="">All</option><option value="ceo-console">CEO Console</option><option value="market-radar">Market Radar</option><option value="atlas-core">Atlas Core</option></select>
+      <span class="bf-lbl">Specialist:</span>
+      <select class="bf-sel" id="BF_SPEC" onchange="renderBoard()"><option value="">All</option><option value="planning">Planning</option><option value="code">Code</option><option value="research">Research</option><option value="ops">Ops</option><option value="qa">QA</option><option value="security">Security</option><option value="design">Design</option><option value="docs">Docs</option></select>
+    </div>
+    <!-- Focus period -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+      <span class="bf-lbl">Sprint:</span>
+      <select class="bf-sel" id="BF_SPRINT" onchange="renderBoard()" style="min-width:200px">
+        <option value="">All tasks</option>
+      </select>
+      <div id="SPRINT_BURNDOWN" style="display:none;flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--bd);border-radius:var(--rsm);padding:6px 12px">
+        <div style="display:flex;justify-content:space-between;font-size:.68rem;color:var(--mut);margin-bottom:4px">
+          <span id="SB_LABEL">Focus goal</span>
+          <span id="SB_PTS">0/0 pts</span>
+        </div>
+        <div style="height:5px;background:var(--bds);border-radius:3px;overflow:hidden">
+          <div id="SB_BAR" style="height:100%;background:var(--ac);width:0%;border-radius:3px;transition:width .5s"></div>
+        </div>
+      </div>
+      <button class="cal-nb" onclick="openSprintForm()" style="white-space:nowrap">+ New focus period</button>
+    </div>
+    <!-- Sprint form -->
+    <div id="SPRINT_FORM" class="mc-form" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:.88rem;font-weight:700;color:var(--txs)">New focus period</div>
+        <button onclick="closeSprintForm()" style="color:var(--mut);font-size:1.1rem">×</button>
+      </div>
+      <div class="mf-grid">
+        <div><label class="mf-lbl">Name *</label><input class="mf-in" id="SF_NAME" placeholder="Sprint 2"></div>
+        <div><label class="mf-lbl">Project</label>
+          <select class="mf-in" id="SF_PROJ">
+            <option value="ceo-console">CEO Console</option>
+            <option value="market-radar">Market Radar</option>
+            <option value="atlas-core">Atlas Core</option>
+          </select></div>
+        <div><label class="mf-lbl">Start date</label><input class="mf-in" id="SF_START" type="date"></div>
+        <div><label class="mf-lbl">End date</label><input class="mf-in" id="SF_END" type="date"></div>
+        <div style="grid-column:1/-1"><label class="mf-lbl">Focus goal</label><input class="mf-in" id="SF_GOAL" placeholder="What will we achieve this sprint?"></div>
+      </div>
+      <div class="mf-actions">
+        <button class="mf-save" onclick="submitSprintForm()">Create sprint</button>
+        <button class="mf-cancel" onclick="closeSprintForm()">Cancel</button>
+      </div>
+    </div>
+    <div class="board-filters">
+      <span class="bf-lbl">Project:</span>
+      <select class="bf-sel" id="BF_PROJ" onchange="renderBoard()"><option value="">All</option>
+        <option value="ceo-console">CEO Console</option><option value="market-radar">Market Radar</option>
+        <option value="atlas-core">Atlas Core</option></select>
+      <span class="bf-lbl">Specialist:</span>
+      <select class="bf-sel" id="BF_SPEC" onchange="renderBoard()"><option value="">All</option>
+        <option value="planning">Planning</option><option value="code">Code</option>
+        <option value="research">Research</option><option value="ops">Ops</option>
+        <option value="qa">QA</option><option value="security">Security</option>
+        <option value="design">Design</option><option value="docs">Docs</option></select>
+    </div>
+    <div class="bcols" id="BOARD"></div>
+  </div>
+</div>
+
+<!-- MISSIONS -->
+<div id="V_miss" class="vw">
+  <div class="pn">
+    <div class="ph"><div><div class="ey">Mission planner</div><div class="pt">Active missions · staffing · risks · linked tasks</div></div>
+      <button class="miss-create-btn" onclick="openMissionForm(null)">+ New mission</button>
+    </div>
+    <!-- New/edit mission form -->
+    <div class="mc-form" id="MISS_FORM">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:.88rem;font-weight:700;color:var(--txs)" id="MF_TITLE">New mission</div>
+        <button onclick="closeMissionForm()" style="color:var(--mut);font-size:1.1rem;line-height:1">×</button>
+      </div>
+      <div class="mf-grid">
+        <div style="grid-column:1/-1"><label class="mf-lbl">Title *</label><input class="mf-in" id="MF_TITLE_IN" placeholder="Mission title"></div>
+        <div style="grid-column:1/-1"><label class="mf-lbl">Objective *</label><input class="mf-in" id="MF_OBJ" placeholder="What does this mission achieve?"></div>
+        <div><label class="mf-lbl">Priority</label>
+          <select class="mf-in" id="MF_PRI"><option value="P0">P0 — Critical</option><option value="P1" selected>P1 — High</option><option value="P2">P2 — Normal</option></select></div>
+        <div><label class="mf-lbl">Horizon</label>
+          <select class="mf-in" id="MF_HOR"><option value="Today" selected>Today</option><option value="This Week">This Week</option><option value="This Sprint">This Sprint</option><option value="This Month">This Month</option></select></div>
+        <div><label class="mf-lbl">Owner agent</label>
+          <select class="mf-in" id="MF_OWN"><option value="">— select —</option></select></div>
+        <div><label class="mf-lbl">Project</label>
+          <select class="mf-in" id="MF_PROJ"><option value="">— select —</option><option value="ceo-console">CEO Console</option><option value="market-radar">Market Radar</option><option value="atlas-core">Atlas Core</option></select></div>
+        <div style="grid-column:1/-1"><label class="mf-lbl">Next actions (one per line)</label><textarea class="mf-in" id="MF_ACT" rows="3" placeholder="What needs to happen next?"></textarea></div>
+      </div>
+      <div class="mf-actions">
+        <button class="mf-save" onclick="submitMissionForm()">Save mission</button>
+        <button class="mf-cancel" onclick="closeMissionForm()">Cancel</button>
+      </div>
+    </div>
+    <div id="MISSIONS_LIST"></div>
+  </div>
+</div>
+
+<!-- CONVERSATIONS -->
+<div id="V_conv" class="vw">
+  <div class="cv-wrap">
+    <div class="tl">
+      <div class="tl-lbl">Threads</div>
+      <div class="ti on" onclick="switchT(0,this)"><div class="ti-n">CEO ↔ Orion</div><div class="ti-p">I'll route by specialist…</div></div>
+      <div class="ti" onclick="switchT(1,this)"><div class="ti-n">Orion ↔ Codex</div><div class="ti-p">Board remains source of work</div></div>
+      <div class="ti" onclick="switchT(2,this)"><div class="ti-n">Orion ↔ Violet</div><div class="ti-p">Scout finished source sweep</div></div>
+      <div class="ti" onclick="switchT(3,this)"><div class="ti-n">Charlie ↔ Shield</div><div class="ti-p">Blocker confirmed</div></div>
+      <div class="ti" onclick="switchT(4,this)"><div class="ti-n">CEO ↔ Quill</div><div class="ti-p">Directives become tasks</div></div>
+    </div>
+    <div class="cv-main">
+      <div class="cv-msgs" id="CV_MSGS"></div>
+      <div class="cv-comp">
+        <input class="cv-inp" id="CV_INP" placeholder="Message Orion…" onkeydown="if(event.key==='Enter')sendMsg()">
+        <button class="cv-send" onclick="sendMsg()">Send</button>
+      </div>
+    </div>
+  </div>
+  <!-- Directives trail -->
+  <div class="pn" style="margin-top:12px">
+    <div class="ph"><div><div class="ey">Directive trail</div><div class="pt">All CEO directives sent to agents · ordered newest first</div></div>
+      <button class="miss-create-btn" style="font-size:.72rem;padding:5px 12px" onclick="openDirectiveForm()">+ Send directive</button>
+    </div>
+    <div id="DIRECTIVE_FORM" class="mc-form" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:.88rem;font-weight:700;color:var(--txs)">Send directive</div>
+        <button onclick="closeDirectiveForm()" style="color:var(--mut);font-size:1.1rem">×</button>
+      </div>
+      <div class="mf-grid">
+        <div><label class="mf-lbl">Target agent *</label><select class="mf-in" id="DIR_TARGET"></select></div>
+        <div><label class="mf-lbl">Context</label><input class="mf-in" id="DIR_CTX" placeholder="Task, mission or project context"></div>
+        <div style="grid-column:1/-1"><label class="mf-lbl">Directive *</label><input class="mf-in" id="DIR_TEXT" placeholder="What should this agent do?"></div>
+      </div>
+      <div class="mf-actions">
+        <button class="mf-save" onclick="submitDirective()">Send directive</button>
+        <button class="mf-cancel" onclick="closeDirectiveForm()">Cancel</button>
+      </div>
+    </div>
+    <div id="DIRECTIVE_TRAIL" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+</div>
+
+<!-- OFFICE — Self-contained canvas 2D game (no CDN, works offline) -->
+<div id="V_off" class="vw">
+  <div class="pn" style="padding:0;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 8px;background:var(--bg3);border-bottom:1px solid var(--bd)">
+      <div><div class="ey">Open office — Pocket Office v9</div>
+        <div class="pt">Interactive 2D simulation · agents animate and walk · click agent to inspect</div></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="scbtn on" id="SCN_DAY" onclick="setGameScene('day')">☀ Day</button>
+        <button class="scbtn" id="SCN_NIGHT" onclick="setGameScene('night')">🌙 Night</button>
+        <button class="cal-nb" onclick="randomiseAgents()" title="Shuffle agent positions">↻ Shuffle</button>
+        <button class="cal-nb" onclick="resetAgents()" title="Reset to home zones">⌂ Reset</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 260px">
+      <div id="OFF_CANVAS_CONTAINER" style="background:#0a0d14;aspect-ratio:640/384;position:relative;overflow:hidden"></div>
+      <div style="padding:12px;border-left:1px solid var(--bd);overflow-y:auto;max-height:420px">
+        <div class="ey" style="margin-bottom:8px">Live activity</div>
+        <div class="scrum-list" id="SCRUM"></div>
+        <div style="margin-top:12px;border-top:1px solid var(--bd);padding-top:10px">
+          <div class="ey" style="margin-bottom:6px">Legend</div>
+          <div style="display:flex;flex-direction:column;gap:4px;font-size:.68rem;color:var(--mut)">
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:5px"></span>Working — at desk, coding/writing</span>
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dn);margin-right:5px"></span>Blocked — waiting for help</span>
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--wn);margin-right:5px"></span>Validation — under review</span>
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--mut);margin-right:5px"></span>Idle — available, no active task</span>
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#333344;margin-right:5px"></span>Offline — disconnected (greyed out)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ACCESS -->
+<div id="V_acc" class="vw">
+  <div class="pn">
+    <div class="ph">
+      <div><div class="ey">Project access matrix</div><div class="pt">rw = read-write · ro = read-only</div></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="chip" id="ACC_CHIP">0 projects · 0 entities</span>
+        <button class="cal-nb" onclick="exportSnapshot()">⬇ Export snapshot</button>
+      </div>
+    </div>
+    <div class="mx-wrap"><table id="ACC_TBL"></table></div>
+  </div>
+</div>
+
+<!-- APPEARANCE -->
+
+<!-- Council -->
+<div id="V_council" class="vw">
+  <div class="pn">
+    <div class="ph">
+      <div><div class="ey">Council</div><div class="pt">Decision log, executive reviews, and team alignment</div></div>
+      <button class="sbb p" onclick="openCouncilEntry()">+ New decision</button>
+    </div>
+    <div id="COUNCIL_LIST" style="display:grid;gap:12px;margin-top:12px"></div>
+  </div>
+</div>
+
+<!-- Pipeline -->
+<div id="V_pipeline" class="vw">
+  <div class="pn">
+    <div class="ph">
+      <div><div class="ey">Pipeline</div><div class="pt">Full task backlog — all tickets across projects and sprints</div></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="PIPE_PROJ" class="ai" style="font-size:.72rem" onchange="renderPipeline()"><option value="">All projects</option></select>
+        <select id="PIPE_STATUS" class="ai" style="font-size:.72rem" onchange="renderPipeline()"><option value="">All statuses</option><option value="backlog">Backlog</option><option value="ready">Ready</option><option value="in_progress">In Progress</option><option value="validation">Validation</option><option value="done">Done</option></select>
+        <button class="sbb p" onclick="openNewTaskForm()">+ New ticket</button>
+      </div>
+    </div>
+    <div id="PIPE_TABLE" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<!-- Approvals -->
+<div id="V_approvals" class="vw">
+  <div class="pn">
+    <div class="ph">
+      <div><div class="ey">Approvals</div><div class="pt">Tasks awaiting CEO review, validation, or sign-off</div></div>
+      <span class="chip" id="APPR_COUNT">0 pending</span>
+    </div>
+    <div id="APPR_LIST" style="display:grid;gap:12px;margin-top:12px"></div>
+  </div>
+</div>
+
+<!-- Requirements -->
+<div id="V_req" class="vw">
+  <div class="ph"><div><div class="ey">Product requirements</div><div class="pt">Create and track requirements linked to tasks</div></div><button class="sbb p" onclick="openReqForm(null)">+ New Requirement</button></div>
+  <div id="REQ_LIST"></div>
+</div>
+
+<!-- Test Cases -->
+<div id="V_tc" class="vw">
+  <div class="ph"><div><div class="ey">Test cases</div><div class="pt">Create, manage, and run test cases</div></div>
+    <div style="display:flex;gap:8px"><button class="sbb" onclick="runAllTests()">▶ Run All</button><button class="sbb p" onclick="openTcForm(null)">+ New Test Case</button></div>
+  </div>
+  <div id="TC_LIST"></div>
+</div>
+
+<div id="V_app" class="vw">
+  <div class="g2">
+    <div class="pn">
+      <div class="ph"><div><div class="ey">Theme palette</div><div class="pt">Official OpenClaw theme families</div></div><span class="chip">v1.5.0</span></div>
+      <div class="pr-grid" id="PR_GRID"></div>
+      <div class="ag">
+        <div><span class="al">Mode</span><select class="ai" id="APP_MODE" onchange="applyMode()"><option value="dark" selected>Dark</option><option value="light">Light</option></select></div>
+        <div><span class="al">Office scene</span><select class="ai" onchange="setScene(this.value)"><option value="day">Day office</option><option value="night">Night office</option></select></div>
+        <div><span class="al">Custom accent 1</span><input type="color" class="ai" id="ACC1" value="#5ee8d2" style="height:36px;padding:2px 6px"></div>
+        <div><span class="al">Custom accent 2</span><input type="color" class="ai" id="ACC2" value="#6ba3ff" style="height:36px;padding:2px 6px"></div>
+      </div>
+      <div class="pvs" id="PVS"></div>
+      <div class="aa">
+        <button class="ab p" onclick="applyTheme()">Apply appearance</button>
+        <button class="ab s" onclick="resetTheme()" style="border:1px solid var(--bd)">Reset</button>
+      </div>
+    </div>
+    <div class="pn">
+      <div class="ph"><div><div class="ey">CEO profile</div><div class="pt">Portrait card · character sprite · name · role</div></div></div>
+      <div class="ceo-row">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+          <img id="CEO_PT" class="ceo-big" src="" title="Click to upload photo" onclick="document.getElementById('PT_UP').click()">
+          <div id="CEO_SP" class="ceo-sp-big" title="Select sprite below"></div>
+          <div style="font-size:.62rem;color:var(--mut);text-align:center">Portrait · Sprite</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+          <div><span class="al">Display name</span><input class="ai" id="CEO_NAME" value="You"></div>
+          <div><span class="al">Role</span><input class="ai" id="CEO_ROLE" value="CEO / Human operator"></div>
+          <button class="ab p" onclick="saveCEO()" style="margin-top:4px">Save profile</button>
+        </div>
+      </div>
+      <input type="file" id="PT_UP" accept="image/*" style="display:none" onchange="uploadPT(event)">
+      <div style="margin-top:14px;border-top:1px solid var(--bd);padding-top:12px">
+        <div class="ey" style="margin-bottom:6px">Portrait card — click to select</div>
+        <div class="picker-wrap" id="PT_PICKER"></div>
+      </div>
+      <div style="margin-top:14px;border-top:1px solid var(--bd);padding-top:12px">
+        <div class="ey" style="margin-bottom:6px">Character sprite — idle/frontal frame shown</div>
+        <div class="picker-wrap" id="SP_PICKER"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /ct -->
+</div><!-- /shell -->
+
+
+<!-- Requirement Dialog -->
+<dialog id="REQ_DLG" style="border:1px solid var(--bds);border-radius:var(--rmd);background:var(--card);color:var(--tx);padding:20px;min-width:380px;max-width:500px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <div style="font-size:.85rem;font-weight:700" id="REQ_DLG_TITLE">New Requirement</div>
+    <button onclick="document.getElementById('REQ_DLG').close()" style="background:none;border:none;color:var(--tx);font-size:1.2rem;cursor:pointer">×</button>
+  </div>
+  <label style="display:block;margin-bottom:8px;font-size:.72rem;color:var(--mut)">Title<input id="REQ_TITLE" type="text" style="display:block;width:100%;margin-top:4px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bds);border-radius:var(--rsm);color:var(--tx);font-size:.78rem" placeholder="Requirement title"></label>
+  <div style="display:flex;gap:8px;margin-bottom:8px">
+    <label style="flex:1;font-size:.72rem;color:var(--mut)">Priority<select id="REQ_PRI" style="display:block;width:100%;margin-top:4px;padding:6px;background:var(--bg3);border:1px solid var(--bds);border-radius:var(--rsm);color:var(--tx);font-size:.78rem"><option value="P0">P0</option><option value="P1">P1</option><option value="P2" selected>P2</option><option value="P3">P3</option></select></label>
+    <label style="flex:1;font-size:.72rem;color:var(--mut)">Status<select id="REQ_STATUS" style="display:block;width:100%;margin-top:4px;padding:6px;background:var(--bg3);border:1px solid var(--bds);border-radius:var(--rsm);color:var(--tx);font-size:.78rem"><option value="draft">Draft</option><option value="approved" selected>Approved</option><option value="in_progress">In Progress</option><option value="done">Done</option></select></label>
+  </div>
+  <label style="display:block;margin-bottom:8px;font-size:.72rem;color:var(--mut)">Description<textarea id="REQ_DESC" rows="3" style="display:block;width:100%;margin-top:4px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bds);border-radius:var(--rsm);color:var(--tx);font-size:.78rem;resize:vertical" placeholder="Describe the requirement..."></textarea></label>
+  <label style="display:block;margin-bottom:12px;font-size:.72rem;color:var(--mut)">Linked Tasks (comma separated)<input id="REQ_TASKS" type="text" style="display:block;width:100%;margin-top:4px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bds);border-radius:var(--rsm);color:var(--tx);font-size:.78rem" placeholder="T-200, T-201"></label>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button onclick="document.getElementById('REQ_DLG').close()" class="sbb">Cancel</button>
+    <button onclick="saveReq()" class="sbb p">Save</button>
+  </div>
+</dialog>
+
+<!-- Test Case Dialog -->
+<dialog id="TC_DLG" style="border:1px solid var(--bds);border-radius:var(--rmd);background:var(--card);color:var(--tx);padding:20px;min-width:380px;max-width:500px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <div style="font-size:.85rem;font-weight:700" id="TC_DLG_TITLE">New Test Case</div>
+    <button onclick="document.getElementById('TC_DLG').close()" style="background:none;border:none;color:var(--tx);font-size:1.2rem;cursor:pointer">×</button>
+  </div>
+  <label style="display:block;margin-bottom:8px;font-size:.72rem;color:var(--mut)">Title<input id="TC_TITLE" type="text" style="display:block;width:100%;margin-top:4px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bds);border-radius:var(--rsm);color:var(--tx);font-size:.78rem" placeholder="Test case title"></label>
+  <label style="display:block;margin-bottom:8px;font-size:.72rem;color:var(--mut)">Linked Requirement<input id="TC_REQ" type="text" style="display:block;width:100%;margin-top:4px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bds);border-radius:var(--rsm);color:var(--tx);font-size:.78rem" placeholder="REQ-001"></label>
+  <label style="display:block;margin-bottom:8px;font-size:.72rem;color:var(--mut)">Steps (one per line)<textarea id="TC_STEPS" rows="4" style="display:block;width:100%;margin-top:4px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bds);border-radius:var(--rsm);color:var(--tx);font-size:.78rem;resize:vertical" placeholder="1. Open the Calendar tab&#10;2. Click prev year"></textarea></label>
+  <label style="display:block;margin-bottom:12px;font-size:.72rem;color:var(--mut)">Expected Result<textarea id="TC_EXPECTED" rows="2" style="display:block;width:100%;margin-top:4px;padding:6px 10px;background:var(--bg3);border:1px solid var(--bds);border-radius:var(--rsm);color:var(--tx);font-size:.78rem;resize:vertical" placeholder="Expected outcome..."></textarea></label>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button onclick="document.getElementById('TC_DLG').close()" class="sbb">Cancel</button>
+    <button onclick="saveTc()" class="sbb p">Save</button>
+  </div>
+</dialog>
+

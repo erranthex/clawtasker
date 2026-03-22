@@ -1,0 +1,28 @@
+{
+  "version": "1.0.5",
+  "source_library": "Pocket Office Quest v9",
+  "agent_avatar_mapping": {
+    "ceo": "aria",
+    "orion": "kai",
+    "codex": "rex",
+    "violet": "quinn",
+    "charlie": "rowan",
+    "ralph": "marco",
+    "shield": "finn",
+    "pixel": "yuki",
+    "echo": "sasha",
+    "quill": "devon",
+    "scout": "zara",
+    "iris": "mina",
+    "ledger": "mina",
+    "mercury": "zara"
+  },
+  "office_layout_source": "generated-day-night-layouts",
+  "vendor_root": "third_party/pocket-office-quest-v9",
+  "notes": [
+    "Portrait assets are copied directly from the supplied v9 library.",
+    "Office sprite sheets are adapted into 5-frame horizontal strips for the ClawTasker office engine.",
+    "The supplied v9 archive did not include standalone office-background bitmaps, so this release generates matching day and night office layouts as compatibility assets.",
+    "The release ships both office_map_day_32bit.png and office_map_night_32bit.png plus matching overlays and a local toggle in the Office view."
+  ]
+}

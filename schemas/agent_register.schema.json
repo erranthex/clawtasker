@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clawtasker.local/schemas/agent_register.schema.json",
+  "title": "ClawTasker agent registration payload",
+  "type": "object",
+  "description": "Local-only helper contract for agent self-registration so ClawTasker can display name, role, skills, and reporting metadata in the company chart.",
+  "required": ["name", "role"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Optional stable agent id. If omitted, ClawTasker slugifies the name.",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name shown on roster cards and the organisation chart.",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "role": {
+      "type": "string",
+      "description": "Human-readable role shown on roster cards and the organisation chart.",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "specialist": {
+      "type": "string",
+      "description": "Primary specialist label, for example code, research, docs, or ops.",
+      "maxLength": 32
+    },
+    "home_specialist": {
+      "type": "string",
+      "description": "Optional explicit home specialist label.",
+      "maxLength": 32
+    },
+    "specialists": {
+      "type": "array",
+      "description": "Additional specialist labels for routing and display.",
+      "items": { "type": "string", "maxLength": 32 },
+      "maxItems": 8
+    },
+    "skills": {
+      "type": "array",
+      "description": "Readable skills shown in the roster and used for chart summaries.",
+      "items": { "type": "string", "maxLength": 40 },
+      "maxItems": 10
+    },
+    "core_skills": {
+      "type": "array",
+      "description": "Short specialist-aligned skills list used for chart summaries.",
+      "items": { "type": "string", "maxLength": 32 },
+      "maxItems": 8
+    },
+    "department": { "type": "string", "maxLength": 80 },
+    "manager": {
+      "type": "string",
+      "description": "Optional manager id, for example orion or a manager lane id.",
+      "maxLength": 32
+    },
+    "project_id": { "type": "string", "maxLength": 32 },
+    "team_id": { "type": "string", "maxLength": 40 },
+    "team_name": { "type": "string", "maxLength": 80 },
+    "status": { "type": "string", "maxLength": 40 },
+    "allowed_tools": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 24 },
+      "maxItems": 12
+    },
+    "profile_hue": { "type": "string", "maxLength": 24 },
+    "avatar_ref": { "type": "string", "maxLength": 32 },
+    "source": {
+      "type": "string",
+      "description": "Optional source tag, for example mission-control or openclaw-bootstrap.",
+      "maxLength": 40
+    }
+  },
+  "anyOf": [
+    { "required": ["skills"] },
+    { "required": ["core_skills"] },
+    { "required": ["specialist"] },
+    { "required": ["home_specialist"] },
+    { "required": ["specialists"] }
+  ],
+  "examples": [
+    {
+      "name": "Iris",
+      "role": "HR Specialist",
+      "specialist": "hr",
+      "skills": ["people ops", "onboarding", "policy"],
+      "manager": "quill",
+      "department": "People",
+      "project_id": "ceo-console"
+    }
+  ]
+}

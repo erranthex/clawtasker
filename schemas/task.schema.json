@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ClawTasker Task Update",
+  "type": "object",
+  "properties": {
+    "task": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "project_id": {
+          "type": "string"
+        },
+        "mission_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "backlog",
+            "ready",
+            "in_progress",
+            "validation",
+            "done"
+          ]
+        },
+        "specialist": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            "P3"
+          ]
+        },
+        "horizon": {
+          "type": "string",
+          "enum": [
+            "Today",
+            "This Week",
+            "This Month",
+            "Later"
+          ]
+        },
+        "due_date": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "validation_owner": {
+          "type": "string"
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "collaborators": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "progress": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "blocked": {
+          "type": "boolean"
+        },
+        "issue_ref": {
+          "type": "string"
+        },
+        "branch_name": {
+          "type": "string"
+        },
+        "pr_status": {
+          "type": "string"
+        }
+      }
+    },
+    "note": {
+      "type": "string"
+    }
+  }
+}

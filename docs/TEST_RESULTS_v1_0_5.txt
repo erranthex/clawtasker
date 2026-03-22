@@ -1,0 +1,525 @@
+ClawTasker CEO Console — Test Results v1.0.5
+=============================================
+Run date: 2026-03-21 04:51 UTC
+
+=== Python compile check ===
+server.py: OK
+
+=== Python unit tests (test_server.py + test_release_requirements.py) ===
+test_agent_api_docs_and_schema_exist (test_release_requirements.ReleaseRequirementsTests.test_agent_api_docs_and_schema_exist) ... ok
+test_architecture_doc_exists (test_release_requirements.ReleaseRequirementsTests.test_architecture_doc_exists)
+ARCHITECTURE.md is a new evergreen doc added in v1.0.5. ... ok
+test_build_render_artifacts_exist (test_release_requirements.ReleaseRequirementsTests.test_build_render_artifacts_exist) ... ok
+test_data_state_file_is_absent_from_repo (test_release_requirements.ReleaseRequirementsTests.test_data_state_file_is_absent_from_repo)
+state.json must not be committed — it is in .gitignore. ... ok
+test_default_ui_settings_and_office_policy (test_release_requirements.ReleaseRequirementsTests.test_default_ui_settings_and_office_policy) ... ok
+test_github_ready_files_exist (test_release_requirements.ReleaseRequirementsTests.test_github_ready_files_exist) ... ok
+test_gitignore_covers_state_and_dist (test_release_requirements.ReleaseRequirementsTests.test_gitignore_covers_state_and_dist) ... ok
+test_mission_plan_schema_and_agent_guide_references_exist (test_release_requirements.ReleaseRequirementsTests.test_mission_plan_schema_and_agent_guide_references_exist) ... ok
+test_notifications_key_in_default_state (test_release_requirements.ReleaseRequirementsTests.test_notifications_key_in_default_state)
+Notification inbox added in v1.0.5. ... ok
+test_obsolete_vendor_versions_are_absent (test_release_requirements.ReleaseRequirementsTests.test_obsolete_vendor_versions_are_absent)
+v4 and brick-edition were removed in v1.0.5 to eliminate triplication. ... ok
+test_openclaw_companion_files_exist (test_release_requirements.ReleaseRequirementsTests.test_openclaw_companion_files_exist) ... ok
+test_openclaw_config_example_has_required_fields (test_release_requirements.ReleaseRequirementsTests.test_openclaw_config_example_has_required_fields) ... ok
+test_openclaw_readme_mentions_current_release (test_release_requirements.ReleaseRequirementsTests.test_openclaw_readme_mentions_current_release) ... ok
+test_openclaw_readme_mentions_helpers_and_prompt_pack (test_release_requirements.ReleaseRequirementsTests.test_openclaw_readme_mentions_helpers_and_prompt_pack) ... ok
+test_openclaw_roster_helper_references_correct_endpoint (test_release_requirements.ReleaseRequirementsTests.test_openclaw_roster_helper_references_correct_endpoint) ... ok
+test_package_metadata_version_is_current (test_release_requirements.ReleaseRequirementsTests.test_package_metadata_version_is_current) ... ok
+test_pocket_office_mapping_manifest_exists (test_release_requirements.ReleaseRequirementsTests.test_pocket_office_mapping_manifest_exists) ... ok
+test_project_has_type_field (test_release_requirements.ReleaseRequirementsTests.test_project_has_type_field)
+Project type system added in v1.0.5. ... ok
+test_readme_declares_correct_version (test_release_requirements.ReleaseRequirementsTests.test_readme_declares_correct_version) ... ok
+test_readme_mentions_key_features (test_release_requirements.ReleaseRequirementsTests.test_readme_mentions_key_features) ... ok
+test_readme_mentions_repository_layout_section (test_release_requirements.ReleaseRequirementsTests.test_readme_mentions_repository_layout_section)
+README now documents the repo structure (new in v1.0.5). ... ok
+test_readme_mentions_v1_0_5_features (test_release_requirements.ReleaseRequirementsTests.test_readme_mentions_v1_0_5_features) ... ok
+test_regression_and_test_results_exist (test_release_requirements.ReleaseRequirementsTests.test_regression_and_test_results_exist) ... ok
+test_requirement_docs_exist (test_release_requirements.ReleaseRequirementsTests.test_requirement_docs_exist) ... ok
+test_requirements_document_mentions_core_platform_phrases (test_release_requirements.ReleaseRequirementsTests.test_requirements_document_mentions_core_platform_phrases) ... ok
+test_requirements_document_mentions_mission_planning_surfaces (test_release_requirements.ReleaseRequirementsTests.test_requirements_document_mentions_mission_planning_surfaces) ... ok
+test_requirements_document_mentions_v1_0_5_features (test_release_requirements.ReleaseRequirementsTests.test_requirements_document_mentions_v1_0_5_features)
+New v1.0.5 features must appear in the requirements document. ... ok
+test_requirements_mentions_official_channels_and_summary_mode (test_release_requirements.ReleaseRequirementsTests.test_requirements_mentions_official_channels_and_summary_mode) ... ok
+test_sprints_key_in_default_state (test_release_requirements.ReleaseRequirementsTests.test_sprints_key_in_default_state)
+Sprint system added in v1.0.5 — default state must include sprints key. ... ok
+test_state_includes_workspace_asset_library_platform_and_office_contract (test_release_requirements.ReleaseRequirementsTests.test_state_includes_workspace_asset_library_platform_and_office_contract) ... ok
+test_task_has_depends_on_and_story_points_fields (test_release_requirements.ReleaseRequirementsTests.test_task_has_depends_on_and_story_points_fields)
+Tasks now carry depends_on and story_points added in v1.0.5. ... ok
+test_ui_source_files_exist (test_release_requirements.ReleaseRequirementsTests.test_ui_source_files_exist) ... ok
+test_vendor_v9_pack_is_complete (test_release_requirements.ReleaseRequirementsTests.test_vendor_v9_pack_is_complete) ... ok
+test_version_file_matches_server_constant (test_release_requirements.ReleaseRequirementsTests.test_version_file_matches_server_constant)
+VERSION file and server.APP_VERSION must be identical. ... ok
+test_version_is_1_0_5 (test_release_requirements.ReleaseRequirementsTests.test_version_is_1_0_5)
+This release is v1.0.5. ... ok
+test_web_legacy_serving_layer_exists (test_release_requirements.ReleaseRequirementsTests.test_web_legacy_serving_layer_exists)
+web/ is the committed static bundle served by server.py. ... ok
+test_blocking_map_computed_in_snapshot (test_server.DependencyTests.test_blocking_map_computed_in_snapshot) ... ok
+test_blocking_upstream_auto_blocks_downstream (test_server.DependencyTests.test_blocking_upstream_auto_blocks_downstream) ... ok
+test_circular_dependency_rejected (test_server.DependencyTests.test_circular_dependency_rejected) ... ok
+test_set_depends_on_via_update_task (test_server.DependencyTests.test_set_depends_on_via_update_task) ... ok
+test_tasks_have_depends_on_and_blocking_fields (test_server.DependencyTests.test_tasks_have_depends_on_and_blocking_fields) ... ok
+test_add_notification_creates_notification (test_server.NotificationTests.test_add_notification_creates_notification) ... ok
+test_decommission_generates_agent_offline_notification (test_server.NotificationTests.test_decommission_generates_agent_offline_notification) ... ok
+test_dismiss_all_notifications (test_server.NotificationTests.test_dismiss_all_notifications) ... ok
+test_dismiss_notifications_marks_dismissed (test_server.NotificationTests.test_dismiss_notifications_marks_dismissed) ... ok
+test_get_notifications_excludes_dismissed (test_server.NotificationTests.test_get_notifications_excludes_dismissed) ... ok
+test_invalid_notification_kind_ignored (test_server.NotificationTests.test_invalid_notification_kind_ignored) ... ok
+test_notifications_capped_at_100 (test_server.NotificationTests.test_notifications_capped_at_100) ... ok
+test_state_has_notifications_list (test_server.NotificationTests.test_state_has_notifications_list) ... ok
+test_compute_target_zone_assigns_valid_zones (test_server.OfficeAndAvatarTests.test_compute_target_zone_assigns_valid_zones)
+compute_target_zone must return a known office zone for every agent status. ... ok
+test_compute_target_zone_blocked_agent_goes_to_scrum_table (test_server.OfficeAndAvatarTests.test_compute_target_zone_blocked_agent_goes_to_scrum_table)
+Blocked agents must be routed to scrum_table for visibility. ... ok
+test_compute_target_zone_validation_agent_goes_to_review_rail (test_server.OfficeAndAvatarTests.test_compute_target_zone_validation_agent_goes_to_review_rail)
+Agents in validation status must be routed to review_rail. ... ok
+test_office_layout_snapshot_has_all_required_zones (test_server.OfficeAndAvatarTests.test_office_layout_snapshot_has_all_required_zones)
+Snapshot office_layout must expose all required area zones. ... ok
+test_office_movement_policy_is_snap_and_respects_bounds (test_server.OfficeAndAvatarTests.test_office_movement_policy_is_snap_and_respects_bounds)
+Movement policy must be snap with protected bounds enabled. ... ok
+test_office_object_bounds_count_in_snapshot_matches_constant (test_server.OfficeAndAvatarTests.test_office_object_bounds_count_in_snapshot_matches_constant)
+system_health office_object_bounds count must match the actual constant length. ... ok
+test_office_object_bounds_exist_and_have_required_areas (test_server.OfficeAndAvatarTests.test_office_object_bounds_exist_and_have_required_areas)
+Server must expose OFFICE_OBJECT_BOUNDS with all critical furniture areas. ... ok
+test_office_object_bounds_have_valid_coordinates (test_server.OfficeAndAvatarTests.test_office_object_bounds_have_valid_coordinates)
+Every bound rectangle must have x1<x2 and y1<y2 in the 1400x840 space. ... ok
+test_configure_org_round_trip (test_server.OfficeV10Tests.test_configure_org_round_trip)
+configure_org changes must be visible in subsequent snapshot org_structure. ... ok
+test_decommission_removes_agent_from_active_tasks (test_server.OfficeV10Tests.test_decommission_removes_agent_from_active_tasks)
+Decommissioning an agent must unassign all tasks they own. ... ok
+test_decommission_removes_from_missions (test_server.OfficeV10Tests.test_decommission_removes_from_missions)
+Decommissioning must remove agent from all mission assigned_agents. ... ok
+test_home_zones_cover_all_specialists (test_server.OfficeV10Tests.test_home_zones_cover_all_specialists)
+Every agent specialist type must map to a valid office zone. ... ok
+test_register_then_decommission_flow (test_server.OfficeV10Tests.test_register_then_decommission_flow)
+Full lifecycle: register new agent, verify in org, decommission. ... ok
+test_configure_org_changes_chief_agent (test_server.OrgManagementTests.test_configure_org_changes_chief_agent)
+configure_org must change the chief agent and update their org_level. ... ok
+test_configure_org_rejects_unknown_chief (test_server.OrgManagementTests.test_configure_org_rejects_unknown_chief)
+configure_org must reject unknown agent IDs for chief role. ... ok
+test_configure_org_updates_ceo_name (test_server.OrgManagementTests.test_configure_org_updates_ceo_name)
+configure_org must update CEO display name in company state. ... ok
+test_decommission_agent_marks_offline (test_server.OrgManagementTests.test_decommission_agent_marks_offline)
+decommission_agent must mark agent status offline. ... ok
+test_decommission_agent_unassigns_tasks (test_server.OrgManagementTests.test_decommission_agent_unassigns_tasks)
+decommission_agent must remove agent from owned tasks. ... ok
+test_decommission_ceo_is_rejected (test_server.OrgManagementTests.test_decommission_ceo_is_rejected)
+decommission_agent must reject attempts to decommission the CEO. ... ok
+test_decommission_unknown_agent_returns_error (test_server.OrgManagementTests.test_decommission_unknown_agent_returns_error)
+decommission_agent must return error for unknown agent IDs. ... ok
+test_new_agent_appears_in_org_under_assigned_manager (test_server.OrgManagementTests.test_new_agent_appears_in_org_under_assigned_manager)
+A newly registered agent with explicit manager must appear under that manager's lane. ... ok
+test_org_structure_has_ceo_chief_and_managers (test_server.OrgManagementTests.test_org_structure_has_ceo_chief_and_managers)
+Org structure must always expose ceo, chief, and manager_lanes keys. ... ok
+test_org_structure_is_dynamic_after_register (test_server.OrgManagementTests.test_org_structure_is_dynamic_after_register)
+After registering a new agent with manager set, org structure must update. ... ok
+test_register_agent_can_change_manager (test_server.OrgManagementTests.test_register_agent_can_change_manager)
+register_agent must update the reporting relationship. ... ok
+test_register_agent_can_update_name_and_role (test_server.OrgManagementTests.test_register_agent_can_update_name_and_role)
+register_agent must update display name and role of existing agent. ... ok
+test_configure_project_changes_type (test_server.ProjectTypeTests.test_configure_project_changes_type) ... ok
+test_configure_project_sets_relevant_specialists (test_server.ProjectTypeTests.test_configure_project_sets_relevant_specialists) ... ok
+test_configure_project_unknown_id_fails (test_server.ProjectTypeTests.test_configure_project_unknown_id_fails) ... ok
+test_projects_have_type_field (test_server.ProjectTypeTests.test_projects_have_type_field) ... ok
+test_specialist_sets_covers_all_types (test_server.ProjectTypeTests.test_specialist_sets_covers_all_types) ... ok
+test_access_matrix_refreshes_after_roster_sync (test_server.ServerTests.test_access_matrix_refreshes_after_roster_sync) ... ok
+test_asset_library_mapping_matches_v9_adapter (test_server.ServerTests.test_asset_library_mapping_matches_v9_adapter) ... ok
+test_attention_queue_flags_blocked_and_validation (test_server.ServerTests.test_attention_queue_flags_blocked_and_validation) ... ok
+test_avatar_roster_render_is_face_readable_and_large (test_server.ServerTests.test_avatar_roster_render_is_face_readable_and_large) ... ok
+test_build_attention_queue_includes_mission_gap_risk_and_dependency_items (test_server.ServerTests.test_build_attention_queue_includes_mission_gap_risk_and_dependency_items) ... ok
+test_compute_target_zone_moves_blocked_agent_to_sync_table (test_server.ServerTests.test_compute_target_zone_moves_blocked_agent_to_sync_table) ... ok
+test_compute_target_zone_respects_layout_roles (test_server.ServerTests.test_compute_target_zone_respects_layout_roles) ... ok
+test_conversation_messages_visible_by_default_hide_internal_discussion (test_server.ServerTests.test_conversation_messages_visible_by_default_hide_internal_discussion) ... ok
+test_conversation_preview_includes_source_badges_channel_link_and_transcript_ref (test_server.ServerTests.test_conversation_preview_includes_source_badges_channel_link_and_transcript_ref) ... ok
+test_corrupt_primary_state_recovers_from_backup (test_server.ServerTests.test_corrupt_primary_state_recovers_from_backup) ... ok
+test_default_org_structure_exposes_multiple_managers_and_team_relationships (test_server.ServerTests.test_default_org_structure_exposes_multiple_managers_and_team_relationships) ... ok
+test_default_state_asset_library_declares_v4_vendor (test_server.ServerTests.test_default_state_asset_library_declares_v4_vendor) ... ok
+test_default_state_contains_mission_catalog (test_server.ServerTests.test_default_state_contains_mission_catalog) ... ok
+test_default_state_contains_projects_conversations_agents_and_asset_library (test_server.ServerTests.test_default_state_contains_projects_conversations_agents_and_asset_library) ... ok
+test_default_state_exposes_ceo_theme_defaults (test_server.ServerTests.test_default_state_exposes_ceo_theme_defaults) ... ok
+test_default_state_exposes_office_layout_modes_and_areas (test_server.ServerTests.test_default_state_exposes_office_layout_modes_and_areas) ... ok
+test_health_role_is_visualization_companion (test_server.ServerTests.test_health_role_is_visualization_companion) ... ok
+test_large_scale_roster_keeps_manager_counts_and_overflow_visible (test_server.ServerTests.test_large_scale_roster_keeps_manager_counts_and_overflow_visible) ... ok
+test_load_state_recovers_defaults_from_corrupt_state_without_exception (test_server.ServerTests.test_load_state_recovers_defaults_from_corrupt_state_without_exception) ... ok
+test_load_state_recovers_from_previous_backup_chain (test_server.ServerTests.test_load_state_recovers_from_previous_backup_chain) ... ok
+test_office_scale_profile_reports_overflow_for_large_roster (test_server.ServerTests.test_office_scale_profile_reports_overflow_for_large_roster) ... ok
+test_openclaw_publish_contract_exposes_agent_registration_contract (test_server.ServerTests.test_openclaw_publish_contract_exposes_agent_registration_contract) ... ok
+test_openclaw_publish_contract_exposes_conversation_sources_and_summary_boundary (test_server.ServerTests.test_openclaw_publish_contract_exposes_conversation_sources_and_summary_boundary) ... ok
+test_openclaw_publish_contract_exposes_latest_release_and_safe_hook_defaults (test_server.ServerTests.test_openclaw_publish_contract_exposes_latest_release_and_safe_hook_defaults) ... ok
+test_openclaw_publish_contract_exposes_mission_plan_contract (test_server.ServerTests.test_openclaw_publish_contract_exposes_mission_plan_contract) ... ok
+test_openclaw_publish_contract_exposes_roster_sync_contract (test_server.ServerTests.test_openclaw_publish_contract_exposes_roster_sync_contract) ... ok
+test_ordered_tasks_places_blocked_then_ready_then_active (test_server.ServerTests.test_ordered_tasks_places_blocked_then_ready_then_active) ... ok
+test_plan_mission_creates_focus_brief_and_links_task (test_server.ServerTests.test_plan_mission_creates_focus_brief_and_links_task) ... ok
+test_platform_contract_marks_visualization_boundary (test_server.ServerTests.test_platform_contract_marks_visualization_boundary) ... ok
+test_post_message_can_create_backlog_task (test_server.ServerTests.test_post_message_can_create_backlog_task) ... ok
+test_post_message_preserves_directive_vs_discussion_split (test_server.ServerTests.test_post_message_preserves_directive_vs_discussion_split) ... ok
+test_publish_from_openclaw_can_upsert_mission_plan (test_server.ServerTests.test_publish_from_openclaw_can_upsert_mission_plan) ... ok
+test_publish_from_openclaw_captures_channel_and_transcript_metadata (test_server.ServerTests.test_publish_from_openclaw_captures_channel_and_transcript_metadata) ... ok
+test_publish_from_openclaw_deduplicates_retries (test_server.ServerTests.test_publish_from_openclaw_deduplicates_retries) ... ok
+test_publish_from_openclaw_updates_agent_task_and_conversation (test_server.ServerTests.test_publish_from_openclaw_updates_agent_task_and_conversation) ... ok
+test_register_agent_creates_company_chart_identity_card (test_server.ServerTests.test_register_agent_creates_company_chart_identity_card) ... ok
+test_register_agent_requires_name_role_and_skill_signal (test_server.ServerTests.test_register_agent_requires_name_role_and_skill_signal) ... ok
+test_register_agent_updates_existing_agent (test_server.ServerTests.test_register_agent_updates_existing_agent) ... ok
+test_restart_reloads_last_good_state_snapshot (test_server.ServerTests.test_restart_reloads_last_good_state_snapshot) ... ok
+test_routing_candidates_prefer_skill_matched_synced_agent (test_server.ServerTests.test_routing_candidates_prefer_skill_matched_synced_agent) ... ok
+test_save_state_rotates_previous_backup_snapshot (test_server.ServerTests.test_save_state_rotates_previous_backup_snapshot) ... ok
+test_server_defaults_are_local_first (test_server.ServerTests.test_server_defaults_are_local_first) ... ok
+test_snapshot_after_roster_sync_exposes_templates_and_skill_catalog (test_server.ServerTests.test_snapshot_after_roster_sync_exposes_templates_and_skill_catalog) ... ok
+test_snapshot_contains_filter_options_asset_library_and_platform_contract (test_server.ServerTests.test_snapshot_contains_filter_options_asset_library_and_platform_contract) ... ok
+test_snapshot_contains_mission_control_focus_and_metrics (test_server.ServerTests.test_snapshot_contains_mission_control_focus_and_metrics) ... ok
+test_snapshot_contains_system_health_recovery_and_agent_api_contract (test_server.ServerTests.test_snapshot_contains_system_health_recovery_and_agent_api_contract) ... ok
+test_snapshot_contains_ticket_system_health (test_server.ServerTests.test_snapshot_contains_ticket_system_health) ... ok
+test_snapshot_exposes_office_layout_for_human_validation (test_server.ServerTests.test_snapshot_exposes_office_layout_for_human_validation) ... ok
+test_snapshot_exposes_office_object_bounds_and_snap_policy (test_server.ServerTests.test_snapshot_exposes_office_object_bounds_and_snap_policy) ... ok
+test_snapshot_org_structure_preserves_manager_team_relationships (test_server.ServerTests.test_snapshot_org_structure_preserves_manager_team_relationships) ... ok
+test_static_ui_dist_exists (test_server.ServerTests.test_static_ui_dist_exists) ... ok
+test_stream_frame_contains_event_stream_fields (test_server.ServerTests.test_stream_frame_contains_event_stream_fields) ... ok
+test_sync_openclaw_roster_adds_custom_roles_with_core_skills (test_server.ServerTests.test_sync_openclaw_roster_adds_custom_roles_with_core_skills) ... ok
+test_sync_openclaw_roster_merges_manager_and_team_metadata (test_server.ServerTests.test_sync_openclaw_roster_merges_manager_and_team_metadata) ... ok
+test_system_health_exposes_live_sync_and_latest_openclaw_release (test_server.ServerTests.test_system_health_exposes_live_sync_and_latest_openclaw_release) ... ok
+test_system_health_load_errors_are_reported_when_recovery_happens (test_server.ServerTests.test_system_health_load_errors_are_reported_when_recovery_happens) ... ok
+test_ui_package_matches_openclaw_tooling_family (test_server.ServerTests.test_ui_package_matches_openclaw_tooling_family) ... ok
+test_unknown_agent_heartbeat_returns_controlled_error (test_server.ServerTests.test_unknown_agent_heartbeat_returns_controlled_error) ... ok
+test_update_task_rejects_invalid_transition_ready_to_done (test_server.ServerTests.test_update_task_rejects_invalid_transition_ready_to_done) ... ok
+test_update_task_rejects_unknown_owner (test_server.ServerTests.test_update_task_rejects_unknown_owner) ... ok
+test_update_task_requires_validation_owner_before_validation (test_server.ServerTests.test_update_task_requires_validation_owner_before_validation) ... ok
+test_update_task_syncs_agent_assignment_and_progress (test_server.ServerTests.test_update_task_syncs_agent_assignment_and_progress) ... ok
+test_vendor_assets_are_adapted_and_sized (test_server.ServerTests.test_vendor_assets_are_adapted_and_sized) ... ok
+test_closing_sprint_computes_velocity (test_server.SprintTests.test_closing_sprint_computes_velocity) ... ok
+test_create_sprint_persists_to_state (test_server.SprintTests.test_create_sprint_persists_to_state) ... ok
+test_create_sprint_returns_sprint_with_required_fields (test_server.SprintTests.test_create_sprint_returns_sprint_with_required_fields) ... ok
+test_create_sprint_without_name_fails (test_server.SprintTests.test_create_sprint_without_name_fails) ... ok
+test_snapshot_includes_sprints (test_server.SprintTests.test_snapshot_includes_sprints) ... ok
+test_update_sprint_changes_status (test_server.SprintTests.test_update_sprint_changes_status) ... ok
+test_update_task_accepts_sprint_id (test_server.SprintTests.test_update_task_accepts_sprint_id) ... ok
+test_invalid_story_points_stored_as_none (test_server.StoryPointsTests.test_invalid_story_points_stored_as_none) ... ok
+test_set_story_points_via_update_task (test_server.StoryPointsTests.test_set_story_points_via_update_task) ... ok
+test_sprint_burndown_uses_story_points (test_server.StoryPointsTests.test_sprint_burndown_uses_story_points) ... ok
+test_tasks_have_story_points_field (test_server.StoryPointsTests.test_tasks_have_story_points_field) ... ok
+test_valid_story_points_values (test_server.StoryPointsTests.test_valid_story_points_values) ... ok
+test_agents_have_skills_data (test_server.V102ImprovementsTests.test_agents_have_skills_data)
+Agents must expose skills or core_skills for capability matrix display. ... ok
+test_all_agents_have_home_specialist (test_server.V102ImprovementsTests.test_all_agents_have_home_specialist)
+Every agent must have a home_specialist or specialist field for capability matrix. ... ok
+test_attention_queue_items_have_complete_structure (test_server.V102ImprovementsTests.test_attention_queue_items_have_complete_structure)
+Every attention queue item must have all fields needed for UI display. ... ok
+test_post_message_can_create_task_with_full_fields (test_server.V102ImprovementsTests.test_post_message_can_create_task_with_full_fields)
+post_message with create_task=True should create a fully formed backlog task. ... ok
+test_project_health_computable_from_tasks (test_server.V102ImprovementsTests.test_project_health_computable_from_tasks)
+For each project, it should be possible to compute done/blocked/total from tasks. ... ok
+test_snapshot_contains_exportable_data_structure (test_server.V102ImprovementsTests.test_snapshot_contains_exportable_data_structure)
+Snapshot must contain all sections needed for a complete export. ... ok
+test_snapshot_exposes_projects_with_specialist_teams (test_server.V102ImprovementsTests.test_snapshot_exposes_projects_with_specialist_teams)
+Projects in snapshot must have name, id and associated data for health panel. ... ok
+test_task_creation_requires_title_and_project (test_server.V102ImprovementsTests.test_task_creation_requires_title_and_project)
+Task update endpoint must accept new tasks with required fields. ... ok
+test_agents_have_derived_status_in_snapshot (test_server.V1ImprovementsTests.test_agents_have_derived_status_in_snapshot) ... ok
+test_agents_have_last_heartbeat_timestamp (test_server.V1ImprovementsTests.test_agents_have_last_heartbeat_timestamp) ... ok
+test_calendar_block_has_agent_and_state (test_server.V1ImprovementsTests.test_calendar_block_has_agent_and_state) ... ok
+test_calendar_has_recurring_jobs_and_blocks (test_server.V1ImprovementsTests.test_calendar_has_recurring_jobs_and_blocks) ... ok
+test_calendar_recurring_job_has_required_fields (test_server.V1ImprovementsTests.test_calendar_recurring_job_has_required_fields) ... ok
+test_mission_has_next_actions_and_success_criteria (test_server.V1ImprovementsTests.test_mission_has_next_actions_and_success_criteria) ... ok
+test_mission_has_progress_percent_and_health_label (test_server.V1ImprovementsTests.test_mission_has_progress_percent_and_health_label) ... ok
+test_mission_has_risks_and_dependencies (test_server.V1ImprovementsTests.test_mission_has_risks_and_dependencies) ... ok
+test_mission_has_staffing_coverage_and_gaps (test_server.V1ImprovementsTests.test_mission_has_staffing_coverage_and_gaps) ... ok
+test_mission_has_task_progress_counts (test_server.V1ImprovementsTests.test_mission_has_task_progress_counts) ... ok
+test_ordered_tasks_exposes_blocker_details_for_blocked_tasks (test_server.V1ImprovementsTests.test_ordered_tasks_exposes_blocker_details_for_blocked_tasks) ... ok
+test_plan_mission_links_task_ids_and_updates_progress (test_server.V1ImprovementsTests.test_plan_mission_links_task_ids_and_updates_progress) ... ok
+test_plan_mission_returns_staffing_coverage_in_result (test_server.V1ImprovementsTests.test_plan_mission_returns_staffing_coverage_in_result) ... ok
+test_snapshot_attention_queue_includes_all_required_kinds (test_server.V1ImprovementsTests.test_snapshot_attention_queue_includes_all_required_kinds) ... ok
+test_snapshot_metrics_include_v1_fields (test_server.V1ImprovementsTests.test_snapshot_metrics_include_v1_fields) ... ok
+test_task_has_routing_mismatch_and_recommended_owner (test_server.V1ImprovementsTests.test_task_has_routing_mismatch_and_recommended_owner) ... ok
+test_task_update_routing_fix_sets_recommended_owner (test_server.V1ImprovementsTests.test_task_update_routing_fix_sets_recommended_owner) ... ok
+test_update_task_can_advance_to_next_lifecycle_state (test_server.V1ImprovementsTests.test_update_task_can_advance_to_next_lifecycle_state) ... ok
+test_version_is_v1_0_0 (test_server.V1ImprovementsTests.test_version_is_v1_0_0) ... ok
+test_agents_have_workload_active_field_in_snapshot (test_server.WorkloadTests.test_agents_have_workload_active_field_in_snapshot) ... ok
+test_overloaded_agent_in_attention_queue (test_server.WorkloadTests.test_overloaded_agent_in_attention_queue) ... ok
+test_snapshot_includes_agent_workload (test_server.WorkloadTests.test_snapshot_includes_agent_workload) ... ok
+test_workload_counts_match_tasks (test_server.WorkloadTests.test_workload_counts_match_tasks) ... ok
+test_workload_has_required_fields_per_agent (test_server.WorkloadTests.test_workload_has_required_fields_per_agent) ... ok
+
+----------------------------------------------------------------------
+Ran 186 tests in 4.552s
+
+OK
+
+=== Node UI tests ===
+TAP version 13
+# Subtest: RQ-046 source badges normalize official conversation channels
+ok 1 - RQ-046 source badges normalize official conversation channels
+  ---
+  duration_ms: 1.106442
+  type: 'test'
+  ...
+# Subtest: RQ-048 directive and discussion categories stay separate in the UI model
+ok 2 - RQ-048 directive and discussion categories stay separate in the UI model
+  ---
+  duration_ms: 0.199816
+  type: 'test'
+  ...
+# Subtest: RQ-049 official channel links prefer explicit urls and otherwise fall back to OpenClaw-style routes
+ok 3 - RQ-049 official channel links prefer explicit urls and otherwise fall back to OpenClaw-style routes
+  ---
+  duration_ms: 0.281011
+  type: 'test'
+  ...
+# Subtest: RQ-050 subagent threads default to summaries only and hide raw internal discussion until requested
+ok 4 - RQ-050 subagent threads default to summaries only and hide raw internal discussion until requested
+  ---
+  duration_ms: 0.35772
+  type: 'test'
+  ...
+# Subtest: RQ-051 transcript references surface session, run, and path from the latest relevant message
+ok 5 - RQ-051 transcript references surface session, run, and path from the latest relevant message
+  ---
+  duration_ms: 1.912472
+  type: 'test'
+  ...
+# Subtest: RQ-004 filterTasks supports agent and specialist filtering
+ok 6 - RQ-004 filterTasks supports agent and specialist filtering
+  ---
+  duration_ms: 0.907001
+  type: 'test'
+  ...
+# Subtest: RQ-004 filterTasks supports project, status, horizon, and search
+ok 7 - RQ-004 filterTasks supports project, status, horizon, and search
+  ---
+  duration_ms: 0.278166
+  type: 'test'
+  ...
+# Subtest: RQ-004 attentionKinds flags blocked, validation, and active work
+ok 8 - RQ-004 attentionKinds flags blocked, validation, and active work
+  ---
+  duration_ms: 0.721346
+  type: 'test'
+  ...
+# Subtest: RQ-026 sortTasks orders blocked first, then status and due date
+ok 9 - RQ-026 sortTasks orders blocked first, then status and due date
+  ---
+  duration_ms: 1.508378
+  type: 'test'
+  ...
+# Subtest: RQ-033 matchAgentsToSkill finds agents by core skill and home specialist
+ok 10 - RQ-033 matchAgentsToSkill finds agents by core skill and home specialist
+  ---
+  duration_ms: 0.252169
+  type: 'test'
+  ...
+# Subtest: RQ-032 groupAgentsByDepartment groups flexible org roles
+ok 11 - RQ-032 groupAgentsByDepartment groups flexible org roles
+  ---
+  duration_ms: 0.171636
+  type: 'test'
+  ...
+# Subtest: RQ-036 groupAgentsByManager exposes reporting relationships for multiple managers
+ok 12 - RQ-036 groupAgentsByManager exposes reporting relationships for multiple managers
+  ---
+  duration_ms: 8.477665
+  type: 'test'
+  ...
+# Subtest: RQ-001 shell uses the OpenClaw-style shell structure and grouped navigation
+ok 13 - RQ-001 shell uses the OpenClaw-style shell structure and grouped navigation
+  ---
+  duration_ms: 1.272455
+  type: 'test'
+  ...
+# Subtest: RQ-002 shell includes Appearance controls, theme cycle, and quick find
+ok 14 - RQ-002 shell includes Appearance controls, theme cycle, and quick find
+  ---
+  duration_ms: 0.175741
+  type: 'test'
+  ...
+# Subtest: RQ-003 template includes CEO profile controls and upload input
+ok 15 - RQ-003 template includes CEO profile controls and upload input
+  ---
+  duration_ms: 0.210697
+  type: 'test'
+  ...
+# Subtest: RQ-005 template includes Pocket Office v9 office canvas and scene controls
+ok 16 - RQ-005 template includes Pocket Office v9 office canvas and scene controls
+  ---
+  duration_ms: 0.207081
+  type: 'test'
+  ...
+# Subtest: RQ-011 style entry imports official-like layout mobile sheet
+ok 17 - RQ-011 style entry imports official-like layout mobile sheet
+  ---
+  duration_ms: 0.55829
+  type: 'test'
+  ...
+# Subtest: RQ-012 access view states visualization-only contract and restart-safe boundary
+ok 18 - RQ-012 access view states visualization-only contract and restart-safe boundary
+  ---
+  duration_ms: 0.419599
+  type: 'test'
+  ...
+# Subtest: RQ-016 dashboard includes system health and recovery playbook surfaces
+ok 19 - RQ-016 dashboard includes system health and recovery playbook surfaces
+  ---
+  duration_ms: 0.188636
+  type: 'test'
+  ...
+# Subtest: RQ-017 access view includes agent publish contract and recovery center
+ok 20 - RQ-017 access view includes agent publish contract and recovery center
+  ---
+  duration_ms: 0.152058
+  type: 'test'
+  ...
+# Subtest: RQ-020 access view includes OpenClaw team bridge and live sync channel surfaces
+ok 21 - RQ-020 access view includes OpenClaw team bridge and live sync channel surfaces
+  ---
+  duration_ms: 0.582059
+  type: 'test'
+  ...
+# Subtest: RQ-028 dashboard includes ticket system health surface
+ok 22 - RQ-028 dashboard includes ticket system health surface
+  ---
+  duration_ms: 0.383539
+  type: 'test'
+  ...
+# Subtest: RQ-030 team view includes capability matrix and roster sync surfaces
+ok 23 - RQ-030 team view includes capability matrix and roster sync surfaces
+  ---
+  duration_ms: 0.252005
+  type: 'test'
+  ...
+# Subtest: RQ-054 dashboard copy matches the command-center layout refresh
+ok 24 - RQ-054 dashboard copy matches the command-center layout refresh
+  ---
+  duration_ms: 0.11338
+  type: 'test'
+  ...
+# Subtest: RQ-035 team view includes manager relationship surface and reporting-line language
+ok 25 - RQ-035 team view includes manager relationship surface and reporting-line language
+  ---
+  duration_ms: 1.212228
+  type: 'test'
+  ...
+# Subtest: RQ-042 appearance view includes office scene selector
+ok 26 - RQ-042 appearance view includes office scene selector
+  ---
+  duration_ms: 0.132339
+  type: 'test'
+  ...
+# Subtest: RQ-046 conversation view includes source badge and official channel language
+ok 27 - RQ-046 conversation view includes source badge and official channel language
+  ---
+  duration_ms: 0.102188
+  type: 'test'
+  ...
+# Subtest: RQ-048 conversation composer separates directive and discussion messages
+ok 28 - RQ-048 conversation composer separates directive and discussion messages
+  ---
+  duration_ms: 0.103912
+  type: 'test'
+  ...
+# Subtest: RQ-050 conversation view includes the subagent summary toggle
+ok 29 - RQ-050 conversation view includes the subagent summary toggle
+  ---
+  duration_ms: 0.107291
+  type: 'test'
+  ...
+# Subtest: RQ-051 conversation context exposes transcript and channel references
+ok 30 - RQ-051 conversation context exposes transcript and channel references
+  ---
+  duration_ms: 0.098348
+  type: 'test'
+  ...
+# Subtest: RQ-053 appearance view exposes CEO Console as the default palette family
+ok 31 - RQ-053 appearance view exposes CEO Console as the default palette family
+  ---
+  duration_ms: 0.096007
+  type: 'test'
+  ...
+# Subtest: RQ-055 dashboard includes mission brief and staffing surfaces
+ok 32 - RQ-055 dashboard includes mission brief and staffing surfaces
+  ---
+  duration_ms: 0.126883
+  type: 'test'
+  ...
+# Subtest: RQ-056 dashboard includes mission risk and dependency radar
+ok 33 - RQ-056 dashboard includes mission risk and dependency radar
+  ---
+  duration_ms: 0.076097
+  type: 'test'
+  ...
+# Subtest: RQ-002 resolveTheme keeps dark, light, and system modes deterministic
+ok 34 - RQ-002 resolveTheme keeps dark, light, and system modes deterministic
+  ---
+  duration_ms: 2.476278
+  type: 'test'
+  ...
+# Subtest: RQ-002 theme presets include official palette families and custom mode
+ok 35 - RQ-002 theme presets include official palette families and custom mode
+  ---
+  duration_ms: 0.778286
+  type: 'test'
+  ...
+# Subtest: RQ-002 applyThemeState writes theme dataset and accent tokens
+ok 36 - RQ-002 applyThemeState writes theme dataset and accent tokens
+  ---
+  duration_ms: 0.63044
+  type: 'test'
+  ...
+# Subtest: RQ-002 official base palette matches OpenClaw control-ui tokens
+ok 37 - RQ-002 official base palette matches OpenClaw control-ui tokens
+  ---
+  duration_ms: 0.209778
+  type: 'test'
+  ...
+# Subtest: RQ-006 office helper keeps table seats and bubble offsets stable
+ok 38 - RQ-006 office helper keeps table seats and bubble offsets stable
+  ---
+  duration_ms: 1.321534
+  type: 'test'
+  ...
+# Subtest: RQ-042 office scene toggle normalizes to day/night only
+ok 39 - RQ-042 office scene toggle normalizes to day/night only
+  ---
+  duration_ms: 0.138413
+  type: 'test'
+  ...
+# Subtest: RQ-043 office area catalog includes the required zones
+ok 40 - RQ-043 office area catalog includes the required zones
+  ---
+  duration_ms: 0.237583
+  type: 'test'
+  ...
+# Subtest: RQ-044 collision-safe office placement returns unique non-overlapping seat anchors
+ok 41 - RQ-044 collision-safe office placement returns unique non-overlapping seat anchors
+  ---
+  duration_ms: 0.631743
+  type: 'test'
+  ...
+# Subtest: RQ-053 CEO Console preset is the default first-run appearance
+ok 42 - RQ-053 CEO Console preset is the default first-run appearance
+  ---
+  duration_ms: 0.354663
+  type: 'test'
+  ...
+# Subtest: RQ-054 office protected bounds keep anchors away from furniture footprints
+ok 43 - RQ-054 office protected bounds keep anchors away from furniture footprints
+  ---
+  duration_ms: 0.519597
+  type: 'test'
+  ...
+# Subtest: RQ-055 office movement policy snaps cross-zone moves and unsafe paths
+ok 44 - RQ-055 office movement policy snaps cross-zone moves and unsafe paths
+  ---
+  duration_ms: 0.372873
+  type: 'test'
+  ...
+1..44
+# tests 44
+# suites 0
+# pass 44
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 574.765405
+
+=== SUMMARY ===
+Python suite : 186 / 186 passed
+Node suite   : 44  / 44  passed
+Total        : 230 / 230 passed

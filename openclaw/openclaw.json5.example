@@ -1,0 +1,61 @@
+{
+  gateway: {
+    host: "127.0.0.1",
+    port: 18789,
+  },
+
+  agents: {
+    defaults: {
+      workspace: "~/.openclaw/workspace-default",
+      heartbeat: {
+        every: "30m",
+        target: "last",
+      },
+    },
+    list: [
+      { id: "orion", default: true, workspace: "~/company/projects/ceo-console", labels: ["chief", "planning"] },
+      { id: "codex", workspace: "~/company/projects/ceo-console", labels: ["code"] },
+      { id: "violet", workspace: "~/company/projects/market-radar", labels: ["research"] },
+      { id: "scout", workspace: "~/company/projects/market-radar", labels: ["research"] },
+      { id: "charlie", workspace: "~/company/projects/atlas-core", labels: ["ops"] },
+      { id: "ralph", workspace: "~/company/projects/ceo-console", labels: ["qa"] },
+      { id: "shield", workspace: "~/company/projects/atlas-core", labels: ["security"] },
+      { id: "quill", workspace: "~/company/projects/ceo-console", labels: ["docs"] },
+      { id: "pixel", workspace: "~/company/projects/ceo-console", labels: ["design"] },
+      { id: "echo", workspace: "~/company/projects/market-radar", labels: ["distribution"] },
+      { id: "iris", workspace: "~/company/projects/ceo-console", labels: ["hr"] },
+      { id: "ledger", workspace: "~/company/projects/atlas-core", labels: ["procurement"] },
+      { id: "mercury", workspace: "~/company/projects/market-radar", labels: ["media"] },
+    ],
+  },
+
+  tools: {
+    sessions: {
+      visibility: "tree",
+    },
+    agentToAgent: {
+      enabled: true,
+      allow: ["orion", "codex", "violet", "scout", "charlie", "ralph", "shield", "quill", "pixel", "echo", "iris", "ledger", "mercury"],
+    },
+  },
+
+  hooks: {
+    enabled: true,
+    token: "${OPENCLAW_HOOKS_TOKEN}",
+    path: "/hooks",
+    defaultSessionKey: "hook:clawtasker",
+    allowRequestSessionKey: false,
+    allowedSessionKeyPrefixes: ["hook:"],
+    allowedAgentIds: ["orion", "codex", "violet", "scout", "charlie", "ralph", "shield", "quill", "pixel", "echo", "iris", "ledger", "mercury"],
+  },
+
+  cron: {
+    enabled: true,
+    maxConcurrentRuns: 2,
+    sessionRetention: "24h",
+    runLog: {
+      maxBytes: "2mb",
+      keepLines: 2000,
+    },
+  },
+}

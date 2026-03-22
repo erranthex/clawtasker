@@ -1,0 +1,11 @@
+{
+  "name": "pocket-office-quest-brick-edition",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static browser office exploration game with N64-inspired office art, toy-brick avatars, requirements, tests, and renderings.",
+  "scripts": {
+    "test": "node tests/run-tests.js",
+    "render": "python3 tools/build_assets_and_data.py",
+    "start": "node serve-local.js"
+  }
+}

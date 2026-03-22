@@ -1,0 +1,38 @@
+{
+  "version": "1.5.0",
+  "css": [
+    "styles/monolith.css"
+  ],
+  "html": {
+    "head": "templates/head.html",
+    "body": "templates/body.html",
+    "tail": "templates/tail.html"
+  },
+  "js_modules": [
+    "data/constants.js",
+    "state/store.js",
+    "lib/router.js",
+    "lib/dom.js",
+    "lib/theme.js",
+    "lib/counters.js",
+    "views/dashboard.js",
+    "views/team.js",
+    "views/board.js",
+    "ui/modals.js",
+    "views/missions.js",
+    "views/conversations.js",
+    "views/calendar.js",
+    "views/office.js",
+    "views/access.js",
+    "views/appearance.js",
+    "views/council-pipeline-approvals.js",
+    "lib/office-engine.js",
+    "ui/onboarding.js",
+    "ui/api.js",
+    "views/requirements.js",
+    "main.js"
+  ],
+  "js_modules_dir": "modules",
+  "iife_wrap": false,
+  "iife_deferred_reason": "40+ inline HTML onclick handlers require global scope. Migrate to addEventListener() before enabling IIFE."
+}

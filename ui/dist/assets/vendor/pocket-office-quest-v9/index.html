@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pocket Office Quest - N64 Brick Edition</title>
+  <meta name="description" content="An original browser based office exploration game with Nintendo 64 inspired presentation, toy-brick avatars, a furnished office room, tests, docs, and renderings.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="page">
+    <header class="hero card">
+      <div>
+        <p class="eyebrow">Browser game delivery</p>
+        <h1>Pocket Office Quest <span>N64 Brick Edition</span></h1>
+        <p class="lead">
+          An original office exploration game with toy-brick-inspired personage avatars, clearer facial rendering, a redesigned office room, and a browser build that opens from the included files on Windows, macOS, and Linux.
+        </p>
+      </div>
+      <div class="heroMeta">
+        <div class="metaPill">No build step to play</div>
+        <div class="metaPill">Toy-brick portraits and sprite sheets</div>
+        <div class="metaPill">Office redesigned with furniture</div>
+      </div>
+    </header>
+
+    <section class="content">
+      <section class="gamePanel card">
+        <div class="canvasWrap">
+          <canvas id="game" width="640" height="384" aria-label="Pocket Office Quest N64 Brick Edition game canvas"></canvas>
+        </div>
+        <div class="cardGrid">
+          <article class="miniCard">
+            <h2>Status</h2>
+            <p id="statusText">Preparing browser build...</p>
+          </article>
+          <article class="miniCard">
+            <h2>Avatar</h2>
+            <p id="avatarText">Loading brick avatar data...</p>
+          </article>
+          <article class="miniCard">
+            <h2>Objective</h2>
+            <p id="objectiveText">Loading the office room and interactive zones...</p>
+          </article>
+          <article class="miniCard">
+            <h2>Compatibility</h2>
+            <p id="compatText">Static browser application. No build step is required to play.</p>
+          </article>
+        </div>
+        <p class="tip">Tip: add <code>?demo=1</code> to the file or URL to launch directly into an automated office tour.</p>
+      </section>
+
+      <aside class="sidebar">
+        <section class="card">
+          <h2>Controls</h2>
+          <ul>
+            <li>Enter starts from the title screen and confirms selections.</li>
+            <li>Arrow keys or WASD move the avatar inside the office.</li>
+            <li>Shift sprints through the room.</li>
+            <li>Space, Enter, or Z interacts with furniture and teammates.</li>
+            <li>Escape returns to character select.</li>
+          </ul>
+        </section>
+
+        <section class="card">
+          <h2>Office furniture included</h2>
+          <p>
+            Reception desk, double workstations, rolling chairs, library shelf, printer and copier, whiteboard, wall display, conference table,
+            server rack, filing cabinets, archive shelving, coffee counter, water cooler, lounge sofa, side table, plants, windows, welcome mat, and front door.
+          </p>
+        </section>
+
+        <section class="card">
+          <h2>Deliveries</h2>
+          <div class="links">
+            <a href="docs/README.md">README</a>
+            <a href="docs/REQUIREMENTS.md">Requirements</a>
+            <a href="docs/TEST_PLAN.md">Test plan</a>
+            <a href="docs/TEST_RESULTS.md">Test results</a>
+            <a href="renderings/office-layout.png">Office layout rendering</a>
+            <a href="renderings/personage-sprites.png">Personage sprite rendering</a>
+            <a href="renderings/gameplay-preview.png">Gameplay rendering</a>
+          </div>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script src="src/game-data.js"></script>
+  <script src="src/engine.js"></script>
+  <script src="src/render.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>

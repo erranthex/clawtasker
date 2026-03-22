@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ClawTasker Heartbeat",
+  "type": "object",
+  "properties": {
+    "agent": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": {"type": "string"},
+        "status": {"type": "string", "enum": ["idle", "working", "blocked", "validating", "validation", "paused", "error", "offline"]},
+        "current_task_id": {"type": "string"},
+        "project_id": {"type": "string"},
+        "note": {"type": "string"},
+        "speaking": {"type": "boolean"},
+        "collaborating_with": {"type": "array", "items": {"type": "string"}},
+        "blockers": {"type": "array", "items": {"type": "string"}},
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "done_summary": {"type": "string"},
+            "doing_summary": {"type": "string"},
+            "next_summary": {"type": "string"},
+            "speaking": {"type": "boolean"},
+            "blockers": {"type": "array", "items": {"type": "string"}},
+            "collaborating_with": {"type": "array", "items": {"type": "string"}}
+          }
+        }
+      }
+    }
+  }
+}

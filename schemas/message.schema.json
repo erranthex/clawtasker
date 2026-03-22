@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ClawTasker Conversation Message",
+  "type": "object",
+  "required": ["sender", "target", "text"],
+  "properties": {
+    "thread_id": {"type": "string"},
+    "sender": {"type": "string"},
+    "target": {"type": "string"},
+    "project_id": {"type": "string"},
+    "specialist": {"type": "string"},
+    "text": {"type": "string"},
+    "create_task": {"type": "boolean"}
+  }
+}
