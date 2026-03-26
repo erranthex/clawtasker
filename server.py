@@ -4092,11 +4092,9 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/agents/decommission":
-            if not check_auth():
-                return
             with STATE_LOCK:
                 state = load_state()
-                result, error = decommission_agent(state, body)
+                result, error = decommission_agent(state, payload)
             if error:
                 send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
             else:
@@ -4104,35 +4102,9 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/org/configure":
-            if not check_auth():
-                return
             with STATE_LOCK:
                 state = load_state()
-                result, error = configure_org(state, body)
-            if error:
-                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
-            else:
-                send_json(self, HTTPStatus.OK, result)
-            return
-
-        if parsed.path == "/api/agents/decommission":
-            if not check_auth():
-                return
-            with STATE_LOCK:
-                state = load_state()
-                result, error = decommission_agent(state, body)
-            if error:
-                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
-            else:
-                send_json(self, HTTPStatus.OK, result)
-            return
-
-        if parsed.path == "/api/org/configure":
-            if not check_auth():
-                return
-            with STATE_LOCK:
-                state = load_state()
-                result, error = configure_org(state, body)
+                result, error = configure_org(state, payload)
             if error:
                 send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
             else:
@@ -4140,11 +4112,9 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/sprints/create":
-            if not check_auth():
-                return
             with STATE_LOCK:
                 state = load_state()
-                result, error = create_sprint(state, body)
+                result, error = create_sprint(state, payload)
             if error:
                 send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
             else:
@@ -4152,11 +4122,9 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/sprints/update":
-            if not check_auth():
-                return
             with STATE_LOCK:
                 state = load_state()
-                result, error = update_sprint(state, body)
+                result, error = update_sprint(state, payload)
             if error:
                 send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
             else:
@@ -4164,11 +4132,9 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/projects/configure":
-            if not check_auth():
-                return
             with STATE_LOCK:
                 state = load_state()
-                result, error = configure_project(state, body)
+                result, error = configure_project(state, payload)
             if error:
                 send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
             else:
@@ -4176,11 +4142,9 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/notifications/dismiss":
-            if not check_auth():
-                return
             with STATE_LOCK:
                 state = load_state()
-                result, error = dismiss_notifications(state, body)
+                result, error = dismiss_notifications(state, payload)
             if error:
                 send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
             else:
@@ -4269,6 +4233,14 @@ def decommission_agent(state, payload):
         if agent_id in assigned:
             assigned.remove(agent_id)
     save_state(state)
+    add_event(
+        state,
+        "agent_decommission",
+        f"{old_name} ({agent_id}) decommissioned",
+        agent_id,
+        reason,
+        agent.get("project_id") or "ceo-console",
+    )
     return {
         "ok": True,
         "message": f"Agent {old_name} ({agent_id}) marked offline",
