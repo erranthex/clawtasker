@@ -4101,6 +4101,36 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
                 send_json(self, HTTPStatus.OK, result)
             return
 
+        if parsed.path == "/api/agents/retire":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = retire_agent(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/agents/replace":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = replace_agent(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/agents/merge":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = merge_agents(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
         if parsed.path == "/api/org/configure":
             with STATE_LOCK:
                 state = load_state()
@@ -4199,8 +4229,187 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
                 send_json(self, HTTPStatus.OK, {"ok": True, "reset": True})
             return
 
+        if parsed.path == "/api/blank/reset":
+            with STATE_LOCK:
+                state = blank_state()
+                save_state(state)
+                send_json(self, HTTPStatus.OK, {"ok": True, "reset": True, "mode": "blank"})
+            return
+
+        if parsed.path == "/api/org/bootstrap":
+            with STATE_LOCK:
+                state = blank_state()
+                result, error = bootstrap_org(state, payload)
+                if error:
+                    send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+                else:
+                    save_state(state)
+                    send_json(self, HTTPStatus.OK, result)
+            return
+
         send_json(self, HTTPStatus.NOT_FOUND, {"error": "Unknown API endpoint"})
 
+
+
+def blank_state() -> Dict[str, Any]:
+    """Return a minimal state with no demo agents, tasks, missions, or conversations."""
+    now = utc_now()
+    projects = [{"id": "ceo-console", "name": "CEO Console", "status": "active"}]
+    company = {
+        "name": "My Organisation",
+        "tagline": "",
+        "ceo": {
+            "id": "ceo",
+            "name": "You",
+            "role": "CEO / Human operator",
+            "emoji": "👩‍💼",
+            "focus": ["priorities", "approvals", "budget", "exceptions", "team shape"],
+        },
+    }
+    state = {
+        "version": APP_VERSION,
+        "created_at": iso_now(),
+        "company": company,
+        "openclaw_integration": {
+            "latest_stable": OPENCLAW_LATEST["npm_version"],
+            "release_title": OPENCLAW_LATEST["release_title"],
+            "github_tag": OPENCLAW_LATEST["github_tag"],
+            "released_at": OPENCLAW_LATEST["released_at"],
+            "node_recommended": OPENCLAW_LATEST["node_recommended"],
+            "node_compatible": OPENCLAW_LATEST["node_compatible"],
+            "control_ui_url": OPENCLAW_LATEST["control_ui_url"],
+            "install_command": OPENCLAW_LATEST["install_command"],
+            "hooks_contract": {
+                "defaultSessionKey": "hook:clawtasker",
+                "allowRequestSessionKey": False,
+                "allowedSessionKeyPrefixes": ["hook:"],
+                "allowedAgentIds": [],
+            },
+            "team_publish": {
+                "endpoint": "http://127.0.0.1:3000/api/openclaw/publish",
+                "transport": "local bearer-token JSON publish",
+                "supported_events": ["heartbeat", "task_update", "validation", "conversation_note", "run", "roster_sync", "agent_register", "mission_plan"],
+            },
+            "official_channels": [],
+            "team_model": [],
+            "last_publish": None,
+            "recent_publish_signatures": [],
+        },
+        "sync_contract": {
+            "chief_agent": "",
+            "principles": [],
+            "heartbeat_seconds": 30,
+            "escalate_on": ["blocked", "validation", "overdue", "routing_mismatch", "error"],
+            "shared_workspace_model": "project-level shared repos, branch-per-task, PR validation before merge",
+        },
+        "platform_contract": {
+            "role": "Flexible collaboration hub for human user and AI specialist agents.",
+            "philosophy": [
+                "Use what helps, skip what doesn't. No methodology is enforced.",
+            ],
+            "visualization_only": True,
+            "api_for_agents": [],
+            "non_goals": [],
+            "restart_contract": [],
+            "conversation_boundary": [],
+        },
+        "projects": projects,
+        "agents": [],
+        "tasks": [],
+        "missions": [],
+        "calendar": {
+            "week_of": first_day_of_week(now).date().isoformat(),
+            "recurring_jobs": [],
+            "blocks": [],
+        },
+        "recent_runs": [],
+        "events": [],
+        "directives": [],
+        "sprints": [],
+        "notifications": [],
+        "conversations": [],
+        "asset_library": {
+            "name": "Pocket Office Quest - v9 Character Pack",
+            "office_background": "office_map_day_32bit.png",
+            "office_background_day": "office_map_day_32bit.png",
+            "office_background_night": "office_map_night_32bit.png",
+            "office_modes": ["day", "night"],
+            "ui_theme_default": f"{DEFAULT_UI_SETTINGS['theme_preset']} / {DEFAULT_UI_SETTINGS['theme_mode']}",
+            "office_object_bounds": len(OFFICE_OBJECT_BOUNDS),
+            "vendor": "Pocket Office Quest v9",
+            "avatar_mapping": {},
+        },
+        "ui_defaults": copy.deepcopy(DEFAULT_UI_SETTINGS),
+        "office_layout": {
+            "modes": ["day", "night"],
+            "active_default": DEFAULT_UI_SETTINGS["office_scene"],
+            "collision_policy": "unique seat anchors only",
+            "movement_policy": {
+                "cross_zone_behavior": "snap",
+                "same_zone_max_animated_distance": 180,
+                "respect_protected_bounds": True,
+                "object_bounds_count": len(OFFICE_OBJECT_BOUNDS),
+            },
+            "object_bounds": copy.deepcopy(OFFICE_OBJECT_BOUNDS),
+            "areas": [],
+        },
+        "workspace_blueprint": WORKSPACE_BLUEPRINT,
+        "skill_catalog": copy.deepcopy(SPECIALIST_CATALOG),
+        "org_templates": org_templates(),
+        "access_matrix": build_access_matrix(projects, []),
+        "github_flow": [],
+    }
+    return refresh_state_metadata(state)
+
+
+def bootstrap_org(state, payload) -> Tuple[Dict[str, Any], Optional[str]]:
+    """Bootstrap a blank state with company info, projects, and agents from a manifest."""
+    company_name = str(payload.get("company_name") or "").strip()[:120]
+    if company_name:
+        state["company"]["name"] = company_name
+    ceo_name = str(payload.get("ceo_name") or "").strip()[:80]
+    if ceo_name:
+        state["company"]["ceo"]["name"] = ceo_name
+    # Register projects from manifest
+    projects_manifest = payload.get("projects") or []
+    if not isinstance(projects_manifest, list):
+        return None, "projects must be a list"
+    for p in projects_manifest:
+        if not isinstance(p, dict):
+            continue
+        pid = str(p.get("project_id") or p.get("id") or "").strip()[:32]
+        if not pid:
+            continue
+        existing = next((x for x in state["projects"] if x.get("id") == pid), None)
+        if not existing:
+            state["projects"].append({
+                "id": pid,
+                "name": str(p.get("name") or pid)[:120],
+                "status": str(p.get("status") or "active")[:32],
+            })
+    # Register agents from manifest
+    agents_manifest = payload.get("agents") or []
+    if not isinstance(agents_manifest, list):
+        return None, "agents must be a list"
+    registered = []
+    errors = []
+    for agent_payload in agents_manifest:
+        if not isinstance(agent_payload, dict):
+            continue
+        _, err = register_agent(state, agent_payload)
+        if err:
+            errors.append(err)
+        else:
+            registered.append(str(agent_payload.get("agent_id") or agent_payload.get("id") or ""))
+    refresh_state_metadata(state)
+    result: Dict[str, Any] = {
+        "ok": True,
+        "agents_registered": registered,
+        "projects": [p["id"] for p in state["projects"]],
+    }
+    if errors:
+        result["warnings"] = errors
+    return result, None
 
 
 def decommission_agent(state, payload):
@@ -4247,6 +4456,193 @@ def decommission_agent(state, payload):
         "agent_id": agent_id,
         "reason": reason,
         "tasks_unassigned": unassigned_tasks,
+    }, None
+
+
+def retire_agent(state, payload):
+    """Gracefully retire an agent, optionally handing off tasks to a successor."""
+    agent_id = str(payload.get("agent_id") or payload.get("id") or "").strip()[:32]
+    if not agent_id:
+        return None, "agent_id is required"
+    if agent_id == "ceo":
+        return None, "cannot retire the CEO"
+    agent = next((a for a in state.get("agents", []) if a.get("id") == agent_id), None)
+    if not agent:
+        return None, f"unknown agent: {agent_id}"
+    reason = str(payload.get("reason") or "retired")[:120]
+    old_name = agent.get("name", agent_id)
+    successor_id = str(payload.get("successor_id") or "").strip()[:32]
+    successor = None
+    if successor_id:
+        successor = next((a for a in state.get("agents", []) if a.get("id") == successor_id), None)
+        if not successor:
+            return None, f"unknown successor: {successor_id}"
+    transferred_tasks = []
+    for task in state.get("tasks", []):
+        if task.get("owner") == agent_id:
+            if successor:
+                task["owner"] = successor_id
+                task["owner_name"] = successor.get("name", successor_id)
+            else:
+                task["owner"] = ""
+                task["owner_name"] = "[unassigned]"
+            transferred_tasks.append(task["id"])
+        if task.get("validation_owner") == agent_id:
+            if successor:
+                task["validation_owner"] = successor_id
+                task["validation_owner_name"] = successor.get("name", successor_id)
+            else:
+                task["validation_owner"] = ""
+                task["validation_owner_name"] = "[unassigned]"
+    for mission in state.get("missions", []):
+        assigned = mission.get("assigned_agents", [])
+        if agent_id in assigned:
+            assigned.remove(agent_id)
+            if successor and successor_id not in assigned:
+                assigned.append(successor_id)
+    agent["status"] = "offline"
+    agent["derived_status"] = "offline"
+    agent["note"] = reason + (f" → {successor.get('name', successor_id)}" if successor else "")
+    agent["last_heartbeat"] = iso_now()
+    save_state(state)
+    details = reason + (f"; tasks transferred to {successor_id}" if successor else "")
+    add_event(
+        state,
+        "agent_retire",
+        f"{old_name} ({agent_id}) retired",
+        agent_id,
+        details,
+        agent.get("project_id") or "ceo-console",
+    )
+    result = {
+        "ok": True,
+        "message": f"Agent {old_name} ({agent_id}) retired",
+        "agent_id": agent_id,
+        "reason": reason,
+        "tasks_transferred": transferred_tasks,
+    }
+    if successor:
+        result["successor_id"] = successor_id
+    return result, None
+
+
+def replace_agent(state, payload):
+    """Transfer all assignments from old_agent_id to new_agent_id, then retire old agent."""
+    old_id = str(payload.get("old_agent_id") or "").strip()[:32]
+    new_id = str(payload.get("new_agent_id") or "").strip()[:32]
+    if not old_id:
+        return None, "old_agent_id is required"
+    if not new_id:
+        return None, "new_agent_id is required"
+    if old_id == "ceo":
+        return None, "cannot replace the CEO"
+    old_agent = next((a for a in state.get("agents", []) if a.get("id") == old_id), None)
+    if not old_agent:
+        return None, f"unknown agent: {old_id}"
+    new_agent = next((a for a in state.get("agents", []) if a.get("id") == new_id), None)
+    if not new_agent:
+        return None, f"unknown replacement agent: {new_id}"
+    reason = str(payload.get("reason") or f"replaced by {new_id}")[:120]
+    old_name = old_agent.get("name", old_id)
+    new_name = new_agent.get("name", new_id)
+    transferred_tasks = []
+    for task in state.get("tasks", []):
+        if task.get("owner") == old_id:
+            task["owner"] = new_id
+            task["owner_name"] = new_name
+            transferred_tasks.append(task["id"])
+        if task.get("validation_owner") == old_id:
+            task["validation_owner"] = new_id
+            task["validation_owner_name"] = new_name
+    for mission in state.get("missions", []):
+        assigned = mission.get("assigned_agents", [])
+        if old_id in assigned:
+            assigned.remove(old_id)
+            if new_id not in assigned:
+                assigned.append(new_id)
+    old_agent["status"] = "offline"
+    old_agent["derived_status"] = "offline"
+    old_agent["note"] = f"Replaced by {new_name} ({new_id}). {reason}"[:220]
+    old_agent["last_heartbeat"] = iso_now()
+    save_state(state)
+    add_event(
+        state,
+        "agent_replace",
+        f"{old_name} replaced by {new_name}",
+        new_id,
+        reason,
+        old_agent.get("project_id") or "ceo-console",
+    )
+    return {
+        "ok": True,
+        "message": f"Agent {old_name} ({old_id}) replaced by {new_name} ({new_id})",
+        "old_agent_id": old_id,
+        "new_agent_id": new_id,
+        "reason": reason,
+        "tasks_transferred": transferred_tasks,
+    }, None
+
+
+def merge_agents(state, payload):
+    """Merge source agent into target: transfer tasks/missions, merge skills, retire source."""
+    source_id = str(payload.get("source_agent_id") or "").strip()[:32]
+    target_id = str(payload.get("target_agent_id") or "").strip()[:32]
+    if not source_id:
+        return None, "source_agent_id is required"
+    if not target_id:
+        return None, "target_agent_id is required"
+    if source_id == target_id:
+        return None, "source_agent_id and target_agent_id must be different"
+    if source_id == "ceo":
+        return None, "cannot merge the CEO"
+    source = next((a for a in state.get("agents", []) if a.get("id") == source_id), None)
+    if not source:
+        return None, f"unknown agent: {source_id}"
+    target = next((a for a in state.get("agents", []) if a.get("id") == target_id), None)
+    if not target:
+        return None, f"unknown target agent: {target_id}"
+    source_name = source.get("name", source_id)
+    target_name = target.get("name", target_id)
+    # Merge skills and specialists from source into target (deduplicated)
+    for field in ("skills", "core_skills", "specialists"):
+        src_vals = source.get(field) or []
+        tgt_vals = target.get(field) or []
+        merged = tgt_vals + [v for v in src_vals if v not in tgt_vals]
+        target[field] = merged[:10]
+    transferred_tasks = []
+    for task in state.get("tasks", []):
+        if task.get("owner") == source_id:
+            task["owner"] = target_id
+            task["owner_name"] = target_name
+            transferred_tasks.append(task["id"])
+        if task.get("validation_owner") == source_id:
+            task["validation_owner"] = target_id
+            task["validation_owner_name"] = target_name
+    for mission in state.get("missions", []):
+        assigned = mission.get("assigned_agents", [])
+        if source_id in assigned:
+            assigned.remove(source_id)
+            if target_id not in assigned:
+                assigned.append(target_id)
+    source["status"] = "offline"
+    source["derived_status"] = "offline"
+    source["note"] = f"Merged into {target_name} ({target_id})"[:220]
+    source["last_heartbeat"] = iso_now()
+    save_state(state)
+    add_event(
+        state,
+        "agent_merge",
+        f"{source_name} merged into {target_name}",
+        target_id,
+        f"Tasks and missions transferred; skills combined",
+        target.get("project_id") or "ceo-console",
+    )
+    return {
+        "ok": True,
+        "message": f"Agent {source_name} ({source_id}) merged into {target_name} ({target_id})",
+        "source_agent_id": source_id,
+        "target_agent_id": target_id,
+        "tasks_transferred": transferred_tasks,
     }, None
 
 
