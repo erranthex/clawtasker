@@ -33,7 +33,7 @@ function buildOrg(){
       const card=mk('div','');
       card.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 12px;'+
         'background:var(--bg3);border:1px solid var(--bd);border-radius:var(--rmd);opacity:.5;position:relative';
-      card.appendChild(mkPortrait(ag.id,'sm'));
+      card.appendChild(mkFaceAv(ag.id,'sm'));
       const info=mk('div','');
       info.innerHTML=`<div style="font-size:.78rem;font-weight:600;color:var(--mut)">${ag.name}</div>`+
         `<div style="font-size:.65rem;color:var(--mut)">${ag.role}</div>`+
@@ -64,7 +64,7 @@ function buildOrg(){
 function mkOrgCard(agent,big,rpts){
   const c=mk('div','org-card'+(big?' big':''));
   c.style.borderTopColor=HUE[agent.hue]||'#14b8a6';
-  c.appendChild(mkPortrait(agent.id,big?'lg':''));
+  c.appendChild(mkFaceAv(agent.id,big?'lg':''));
   const nameEl=txt('div','org-name',agent.name);
   nameEl.style.cursor='pointer';nameEl.title='Click to edit';
   nameEl.onclick=()=>openOrgEdit(agent,'name',nameEl);
@@ -74,7 +74,7 @@ function mkOrgCard(agent,big,rpts){
   roleEl.onclick=()=>openOrgEdit(agent,'role',roleEl);
   c.appendChild(roleEl);
   if(agent.skills){const sk=mk('div','org-sk');agent.skills.slice(0,3).forEach(s=>{const ch=mk('span','chip');ch.textContent=s;sk.appendChild(ch);});c.appendChild(sk);}
-  if(rpts&&rpts.length){const rw=mk('div','org-reps');rpts.forEach(r=>{rw.appendChild(mkPortrait(r.id,'sm'));});c.appendChild(rw);}
+  if(rpts&&rpts.length){const rw=mk('div','org-reps');rpts.forEach(r=>{rw.appendChild(mkFaceAv(r.id,'sm'));});c.appendChild(rw);}
   if(agent.id&&agent.id!=='ceo'){
     const ctrl=mk('div','');ctrl.style.cssText='display:flex;gap:4px;margin-top:6px;justify-content:center';
     const editBtn=txt('button','mc-edit','Edit');editBtn.onclick=e=>{e.stopPropagation();openFullOrgEdit(agent);};
