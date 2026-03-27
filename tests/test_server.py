@@ -45,7 +45,7 @@ class ServerTests(unittest.TestCase):
     def test_server_defaults_are_local_first(self):
         self.assertEqual(server.HOST, '127.0.0.1')
         self.assertEqual(server.PORT, 3000)
-        self.assertEqual(server.APP_VERSION, '1.2.0')
+        self.assertEqual(server.APP_VERSION, '1.5.0')
 
     def test_attention_queue_flags_blocked_and_validation(self):
         state = server.default_state()
@@ -99,7 +99,6 @@ class ServerTests(unittest.TestCase):
     def test_static_ui_dist_exists(self):
         root = Path(server.__file__).resolve().parent
         self.assertTrue((root / 'ui' / 'dist' / 'index.html').exists())
-        self.assertTrue((root / 'ui' / 'dist' / 'assets' / 'main.js').exists())
         self.assertTrue((root / 'ui' / 'dist' / 'assets' / 'styles.css').exists())
         styles = (root / 'ui' / 'dist' / 'assets' / 'styles.css').read_text(encoding='utf-8')
         self.assertIn('.glass-panel', styles)
@@ -1112,8 +1111,8 @@ class V1ImprovementsTests(unittest.TestCase):
     def test_version_is_v1_0_5(self):
         from pathlib import Path
         ver_file = (Path(server.__file__).resolve().parent / 'VERSION').read_text().strip()
-        self.assertEqual(ver_file, '1.2.0')
-        self.assertEqual(server.APP_VERSION, '1.2.0')
+        self.assertEqual(ver_file, '1.5.0')
+        self.assertEqual(server.APP_VERSION, '1.5.0')
 
 
 

@@ -37,7 +37,7 @@ API_TOKEN = os.getenv("CLAWTASKER_API_TOKEN", "change-me-local")
 WRITE_LIMIT_PER_MINUTE = int(os.getenv("CLAWTASKER_WRITE_LIMIT", "30"))
 HEARTBEAT_STALE_SECONDS = int(os.getenv("CLAWTASKER_STALE_SECONDS", "180"))
 MAX_BODY_BYTES = 160 * 1024
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.5.0"
 
 OPENCLAW_LATEST = {
     "release_title": "openclaw 2026.3.13",
