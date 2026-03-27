@@ -224,12 +224,15 @@ Create a new task directly. Available to both human operators (GUI) and AI agent
   "priority": "P1",
   "status": "backlog",
   "story_points": 5,
+  "type": "story",
+  "reporter": "alice",
+  "acceptance_criteria": ["User can log in with Google", "Session persists across page reloads"],
   "definition_of_done": ["Implementation complete", "Tests passing", "Reviewed"],
   "write_token": "change-me-local"
 }
 ```
 
-All fields except `title` are optional.
+All fields except `title` are optional. New fields: `type` (one of `bug`, `story`, `task`, `spike`, `epic`; default `task`), `reporter` (defaults to `author` or `"ceo"`), `acceptance_criteria` (list of strings), `assignees` (additional agent IDs beyond `owner`). The response task object also includes: `links: []`, `activity: []`.
 
 **Response:**
 ```json
@@ -257,6 +260,37 @@ Permanently delete a task. Removes it from missions and dependency chains.
 ```json
 { "ok": true, "task_id": "T-216" }
 ```
+
+---
+
+## POST /api/tasks/link
+
+Create a named, bidirectional link between two tasks. The reverse/symmetric link is automatically added to the target task.
+
+**Supported `link_type` values:** `relates-to`, `duplicates`, `blocks`, `is-blocked-by`, `child-of`, `parent-of`
+
+**Body:**
+```json
+{
+  "source_id": "T-101",
+  "target_id": "T-202",
+  "link_type": "blocks",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "source_id": "T-101",
+  "target_id": "T-202",
+  "link_type": "blocks",
+  "symmetric_type": "is-blocked-by"
+}
+```
+
+**Errors:** `source_id is required`, `target_id is required`, `invalid link_type: <x>`, `cannot link a task to itself`, `unknown source task: <id>`, `unknown target task: <id>`, `link already exists: <source> <type> <target>`
 
 ---
 

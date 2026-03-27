@@ -48,6 +48,38 @@ The state file now records which app version last wrote it. Stamped automaticall
 
 ---
 
+### v1.5.x — task field completeness (2026-03-27)
+
+**New fields on every task:** `type`, `reporter`, `acceptance_criteria`, `links`, `assignees`, `activity`
+
+Migration guards in `load_state()`:
+
+```python
+for task in state.get("tasks", []):
+    if "type" not in task:
+        task["type"] = "task"
+        changed = True
+    if "reporter" not in task:
+        task["reporter"] = "ceo"
+        changed = True
+    if "acceptance_criteria" not in task:
+        task["acceptance_criteria"] = []
+        changed = True
+    if "links" not in task:
+        task["links"] = []
+        changed = True
+    if "assignees" not in task:
+        task["assignees"] = [task["owner"]] if task.get("owner") else []
+        changed = True
+    if "activity" not in task:
+        task["activity"] = []
+        changed = True
+```
+
+These are all additive — no data is removed or renamed.
+
+---
+
 ## Adding a New Migration
 
 When you add a structural change that auto-merge cannot handle, add a named block in `load_state()` in `server.py`, **after** the auto-merge block and before `refresh_demo_state()`:

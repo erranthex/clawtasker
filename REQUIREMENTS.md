@@ -189,3 +189,86 @@ Missions, sprints, and projects can be permanently deleted. Deletions are non-ca
 - [x] `POST /api/projects/delete` — removes project; tasks and agents retain their `project_id` for history; `ceo-console` is protected from deletion; emits `project_deleted` event
 - [x] GUI mission card delete button persists via API
 - [x] All three endpoints available to AI agents via API
+
+---
+
+## REQ-014 · Task Type Classification
+**Priority:** P0 · **Status:** Done
+
+### Description
+Every task carries a `type` field that classifies it as one of: `bug`, `story`, `task`, `spike`, `epic`. Type is settable on creation and updatable at any time via GUI and API.
+
+### Acceptance Criteria
+- [x] `make_task()` initialises `type` as `"task"` by default
+- [x] Valid types: `bug`, `story`, `task`, `spike`, `epic`; invalid values silently fall back to `"task"`
+- [x] `POST /api/tasks/create` accepts optional `type` field
+- [x] `POST /api/tasks/update` accepts `type` field; validates against allowed set
+- [x] Task create modal shows type selector with icons (Bug/Story/Task/Spike/Epic)
+- [x] Task edit modal shows type selector
+- [x] Task detail view shows type icon/chip
+- [x] Old `state.json` files without `type` field are migrated to `"task"` on load
+
+---
+
+## REQ-015 · Task Reporter
+**Priority:** P0 · **Status:** Done
+
+### Description
+Every task records a `reporter` field (who filed it), set on creation and immutable afterwards. Defaults to the `author` of the API call, or `"ceo"` if not specified.
+
+### Acceptance Criteria
+- [x] `create_task()` sets `reporter` from `payload["reporter"]` → `payload["author"]` → `"ceo"`
+- [x] Reporter is not in `TASK_FIELDS` and cannot be changed via `update_task()`
+- [x] Task detail view shows reporter as a read-only chip
+- [x] Migration adds `reporter: "ceo"` to existing tasks without the field
+
+---
+
+## REQ-016 · Acceptance Criteria Field
+**Priority:** P1 · **Status:** Done
+
+### Description
+Tasks support a structured `acceptance_criteria` list (distinct from Definition of Done) that specifies the conditions under which a task is considered complete.
+
+### Acceptance Criteria
+- [x] `make_task()` initialises `acceptance_criteria` as `[]`
+- [x] `POST /api/tasks/create` accepts `acceptance_criteria` as a list of strings (max 10 items, 280 chars each)
+- [x] `POST /api/tasks/update` accepts `acceptance_criteria` list (replaces existing)
+- [x] Task create and edit modals include an Acceptance Criteria textarea (one criterion per line)
+- [x] Task detail view shows acceptance criteria as a checklist section
+- [x] Migration adds `acceptance_criteria: []` to existing tasks without the field
+
+---
+
+## REQ-017 · Linked Issues with Named Link Types
+**Priority:** P1 · **Status:** Done
+
+### Description
+Tasks can be linked to each other with typed, bidirectional relationships. Supported link types: `relates-to`, `duplicates`, `blocks`, `is-blocked-by`, `child-of`, `parent-of`.
+
+### Acceptance Criteria
+- [x] `make_task()` initialises `links` as `[]`; each link entry: `{type, target_id, title}`
+- [x] `POST /api/tasks/link` — creates a link from `source_id` to `target_id` with `link_type`; automatically adds symmetric reverse link on the target task
+- [x] Self-links rejected with error
+- [x] Duplicate links rejected with error
+- [x] Invalid link type rejected with list of valid types
+- [x] Deleting a task removes all links pointing to it on other tasks
+- [x] Task detail view shows linked issues section with type labels and clickable chips
+- [x] Migration adds `links: []` to existing tasks without the field
+
+---
+
+## REQ-018 · Per-Task Activity Log
+**Priority:** P1 · **Status:** Done
+
+### Description
+Each task maintains an `activity` list recording field-change events (status, owner, priority, horizon) with author, old value, new value, and timestamp. Activity is recorded automatically by `update_task()`.
+
+### Acceptance Criteria
+- [x] `make_task()` initialises `activity` as `[]`
+- [x] `update_task()` appends an activity entry whenever `status`, `owner`, `priority`, or `horizon` changes
+- [x] Activity entry fields: `id`, `author`, `action`, `field`, `from`, `to`, `timestamp`
+- [x] No entry created when a field value does not actually change
+- [x] `author` defaults to `"ceo"` if not supplied in the update payload
+- [x] Task detail view shows activity log below comments, in chronological order
+- [x] Migration adds `activity: []` to existing tasks without the field

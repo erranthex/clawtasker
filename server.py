@@ -1087,6 +1087,12 @@ def make_task(
         "branch_name": f"agent/{owner}/{task_id.lower()}-{branch_slug[:36]}",
         "pr_status": "not-opened",
         "updated_at": iso_now(),
+        "type": "task",
+        "reporter": "",
+        "acceptance_criteria": [],
+        "links": [],
+        "assignees": [normalize_text(owner, 32)] if owner else [],
+        "activity": [],
     }
 
 
@@ -2273,10 +2279,28 @@ def load_state() -> Dict[str, Any]:
             if state.get("state_version") != APP_VERSION:
                 state["state_version"] = APP_VERSION
                 changed = True
-            # Migrate: ensure all tasks have comments array (added in CRUD update)
+            # Migrate tasks: ensure all new fields exist in older state files
             for task in state.get("tasks", []):
                 if "comments" not in task:
                     task["comments"] = []
+                    changed = True
+                if "type" not in task:
+                    task["type"] = "task"
+                    changed = True
+                if "reporter" not in task:
+                    task["reporter"] = "ceo"
+                    changed = True
+                if "acceptance_criteria" not in task:
+                    task["acceptance_criteria"] = []
+                    changed = True
+                if "links" not in task:
+                    task["links"] = []
+                    changed = True
+                if "assignees" not in task:
+                    task["assignees"] = [task["owner"]] if task.get("owner") else []
+                    changed = True
+                if "activity" not in task:
+                    task["activity"] = []
                     changed = True
             if refresh_demo_state(state):
                 changed = True
@@ -3191,7 +3215,10 @@ TASK_FIELDS = {
     "issue_ref",
     "pr_status",
     "mission_id",
+    "type",
 }
+
+VALID_TASK_TYPES = {"bug", "story", "task", "spike", "epic"}
 
 
 def update_task(state: Dict[str, Any], payload: Dict[str, Any], emit_event: bool = True) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
@@ -3270,6 +3297,29 @@ def update_task(state: Dict[str, Any], payload: Dict[str, Any], emit_event: bool
         task["collaborators"] = normalize_list(task_payload["collaborators"], 6, 24)
     if "artifacts" in task_payload:
         task["artifacts"] = normalize_list(task_payload["artifacts"], 8, 120)
+    if "acceptance_criteria" in task_payload:
+        task["acceptance_criteria"] = normalize_list(task_payload["acceptance_criteria"], 10, 280)
+    if "definition_of_done" in task_payload:
+        task["definition_of_done"] = normalize_list(task_payload["definition_of_done"], 10, 200)
+    if "assignees" in task_payload:
+        task["assignees"] = normalize_list(task_payload["assignees"], 8, 32)
+    if "type" in task_payload:
+        requested_type = normalize_text(task_payload["type"], 32) or "task"
+        task["type"] = requested_type if requested_type in VALID_TASK_TYPES else "task"
+    # Activity log: record key field changes
+    actor = normalize_text(task_payload.get("author") or task_payload.get("updated_by") or "ceo", 32)
+    for field, old_val in [("status", old_status), ("owner", old_owner), ("priority", old_priority), ("horizon", old_horizon)]:
+        new_val = task.get(field)
+        if new_val != old_val and old_val is not None:
+            task.setdefault("activity", []).append({
+                "id": f"act-{iso_now().replace(':', '').replace('-', '').replace('+', '')[:15]}-{field[:4]}",
+                "author": actor,
+                "action": "changed",
+                "field": field,
+                "from": old_val,
+                "to": new_val,
+                "timestamp": iso_now(),
+            })
     routing = routing_candidates_for(state, task.get("specialist", "planning"), task.get("project_id"))
     task["recommended_owner"] = routing[0] if routing else recommended_owner_for(task.get("specialist", "planning"), task.get("owner"))
     task["backup_owner"] = routing[1] if len(routing) > 1 else backup_owner_for(task.get("specialist", "planning"), task.get("owner"))
@@ -4130,6 +4180,16 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
             with STATE_LOCK:
                 state = load_state()
                 result, error = add_task_comment(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/tasks/link":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = link_tasks(state, payload)
             if error:
                 send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
             else:
@@ -5081,6 +5141,15 @@ def create_task(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[st
         task["definition_of_done"] = normalize_list(payload["definition_of_done"], 10, 200)
     if payload.get("validation_steps"):
         task["validation_steps"] = normalize_list(payload["validation_steps"], 10, 200)
+    if payload.get("acceptance_criteria"):
+        task["acceptance_criteria"] = normalize_list(payload["acceptance_criteria"], 10, 280)
+    requested_type = normalize_text(payload.get("type") or "task", 32)
+    task["type"] = requested_type if requested_type in VALID_TASK_TYPES else "task"
+    task["reporter"] = normalize_text(payload.get("reporter") or payload.get("author") or "ceo", 32)
+    extra_assignees = normalize_list(payload.get("assignees") or [], 8, 32)
+    task["assignees"] = list(dict.fromkeys([owner] + extra_assignees)) if owner else extra_assignees
+    task["links"] = []
+    task["activity"] = []
     task["comments"] = []
     state.setdefault("tasks", []).insert(0, task)
     add_event(state, "task_created", f"{task_id} created", owner or "ceo", title, project_id)
@@ -5109,9 +5178,53 @@ def delete_task(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[st
             t["depends_on"] = [d for d in t["depends_on"] if d != task_id]
         if task_id in t.get("blocking", []):
             t["blocking"] = [d for d in t["blocking"] if d != task_id]
+        if t.get("links"):
+            t["links"] = [l for l in t["links"] if l.get("target_id") != task_id]
     add_event(state, "task_deleted", f"{task_id} deleted", "ceo", task.get("title", task_id), task.get("project_id"))
     save_state(state)
     return {"ok": True, "task_id": task_id}, None
+
+
+_LINK_SYMMETRIC: Dict[str, str] = {
+    "relates-to": "relates-to",
+    "duplicates": "duplicates",
+    "blocks": "is-blocked-by",
+    "is-blocked-by": "blocks",
+    "child-of": "parent-of",
+    "parent-of": "child-of",
+}
+
+
+def link_tasks(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """Create a named link between two tasks (bidirectional, symmetric types handled)."""
+    source_id = normalize_text(payload.get("source_id") or payload.get("task_id"), 32)
+    target_id = normalize_text(payload.get("target_id"), 32)
+    link_type  = normalize_text(payload.get("link_type") or "relates-to", 32) or "relates-to"
+    if not source_id:
+        return None, "source_id is required"
+    if not target_id:
+        return None, "target_id is required"
+    if link_type not in _LINK_SYMMETRIC:
+        return None, f"invalid link_type: {link_type}. Valid: {sorted(_LINK_SYMMETRIC)}"
+    if source_id == target_id:
+        return None, "cannot link a task to itself"
+    source = next((t for t in state.get("tasks", []) if t["id"] == source_id), None)
+    target = next((t for t in state.get("tasks", []) if t["id"] == target_id), None)
+    if not source:
+        return None, f"unknown source task: {source_id}"
+    if not target:
+        return None, f"unknown target task: {target_id}"
+    # Prevent duplicate links
+    for lnk in source.get("links", []):
+        if lnk.get("target_id") == target_id and lnk.get("type") == link_type:
+            return None, f"link already exists: {source_id} {link_type} {target_id}"
+    source.setdefault("links", []).append({"type": link_type, "target_id": target_id, "title": target.get("title", target_id)})
+    sym = _LINK_SYMMETRIC[link_type]
+    target.setdefault("links", []).append({"type": sym, "target_id": source_id, "title": source.get("title", source_id)})
+    save_state(state)
+    add_event(state, "task_linked", f"{source_id} {link_type} {target_id}", "ceo",
+              f"{source.get('title',source_id)} → {target.get('title',target_id)}", source.get("project_id"))
+    return {"ok": True, "source_id": source_id, "target_id": target_id, "link_type": link_type, "symmetric_type": sym}, None
 
 
 def add_task_comment(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:

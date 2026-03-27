@@ -1,5 +1,31 @@
 # ClawTasker CEO Console — Changelog
 
+## vNext — Task Field Completeness + Linked Issues + Activity Log (2026-03-27)
+
+### Added
+- **Task `type` field** — classify tasks as `bug`, `story`, `task`, `spike`, or `epic`; settable on create and via update; GUI create/edit modals show type selector; invalid values fall back to `"task"`
+- **Task `reporter` field** — records who filed the task; set on creation from `reporter`/`author` field (defaults to `"ceo"`); shown read-only in task detail view
+- **Task `acceptance_criteria` field** — structured list of completion conditions (distinct from DoD); editable in create/edit modals; shown as checklist in task detail view
+- **Task `links` field + `POST /api/tasks/link`** — typed bidirectional links between tasks; types: `relates-to`, `duplicates`, `blocks`, `is-blocked-by`, `child-of`, `parent-of`; symmetric reverse link added automatically; deleting a task removes dangling links on other tasks
+- **Task `assignees` field** — list of all assigned agent IDs; mirrors `owner` as the primary assignee
+- **Task `activity` log** — `update_task()` appends `{id, author, action, field, from, to, timestamp}` entries for `status`, `owner`, `priority`, and `horizon` changes; shown in task detail view below comments
+- **`POST /api/agents/update`** — update agent name, role, emoji, skills, org_level via API
+- **`POST /api/agents/delete`** — permanently remove an agent; protects chief; unassigns tasks and missions; GUI team view remove button now calls this endpoint
+- **Mission `status` dropdown** — mission form now shows Status field (draft/active/blocked/completed)
+- **Mission `success_criteria` field** — mission form now shows Success Criteria textarea; previously always saved as `[]`
+- **GUI task create/edit modals** — expanded with type selector, sprint/horizon/validator selectors, labels, blocked checkbox, Acceptance Criteria + DoD textareas
+- **Team chart** — managers identified by `org_level === "manager"` (was hardcoded agent ID list)
+- **Version single source of truth** — `APP_VERSION` reads from `VERSION` file; `build_ui.py` injects version into HTML; tests use dynamic `_EXPECTED_VERSION`
+
+### Fixed
+- Mission status and success_criteria were always reset on every save (ignored form values)
+- Team chart managers were hard-coded to specific agent IDs
+
+### Migration
+- Existing tasks gain: `type`, `reporter`, `acceptance_criteria`, `links`, `assignees`, `activity` — automatic on first load, no data lost
+
+---
+
 ## vNext — CRUD + Comments (2026-03-27)
 
 ### Added
