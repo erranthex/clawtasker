@@ -4091,6 +4091,66 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
                 send_json(self, HTTPStatus.OK, {"ok": True, "task": output})
             return
 
+        if parsed.path == "/api/tasks/create":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = create_task(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/tasks/delete":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = delete_task(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/tasks/comment":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = add_task_comment(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/missions/delete":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = delete_mission(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/sprints/delete":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = delete_sprint(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/projects/delete":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = delete_project(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
         if parsed.path == "/api/agents/decommission":
             with STATE_LOCK:
                 state = load_state()
@@ -4866,4 +4926,168 @@ def dismiss_notifications(state: Dict, payload: Dict) -> Tuple[Optional[Dict], O
             dismissed += 1
     save_state(state)
     return {"ok": True, "dismissed": dismissed}, None
+
+
+def _next_task_id(state: Dict) -> str:
+    nums = []
+    for t in state.get("tasks", []):
+        tid = t.get("id", "")
+        if tid.startswith("T-"):
+            try:
+                nums.append(int(tid[2:]))
+            except ValueError:
+                pass
+    return f"T-{max(nums) + 1 if nums else 200}"
+
+
+def create_task(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """Create a new task directly (API or GUI)."""
+    title = normalize_text(payload.get("title"), 120)
+    if not title:
+        return None, "title is required"
+    task_id = normalize_text(payload.get("id"), 32) or _next_task_id(state)
+    if next((t for t in state.get("tasks", []) if t.get("id") == task_id), None):
+        return None, f"task id already exists: {task_id}"
+    specialist = normalize_text(payload.get("specialist") or "planning", 32)
+    project_id = normalize_text(payload.get("project_id") or "ceo-console", 32)
+    owner      = normalize_text(payload.get("owner") or payload.get("owner_id") or "", 32)
+    priority   = normalize_text(payload.get("priority") or "P1", 8)
+    horizon    = normalize_text(payload.get("horizon") or "This Week", 32)
+    status_req = normalize_text(payload.get("status") or "backlog", 32)
+    description = normalize_text(payload.get("description") or title, 500)
+    validation_owner = normalize_text(payload.get("validation_owner") or "ralph", 32)
+    routing = routing_candidates_for(state, specialist, project_id)
+    if not owner:
+        owner = routing[0] if routing else recommended_owner_for(specialist, "")
+    task = make_task(
+        task_id, title, project_id,
+        status_req, specialist, owner,
+        priority, horizon, 7,
+        description,
+        normalize_list(payload.get("labels") or [], 12, 32),
+        max(0, min(100, int(payload.get("progress") or 0))),
+        validation_owner,
+        blocked=bool(payload.get("blocked", False)),
+        collaborators=normalize_list(payload.get("collaborators") or [], 6, 24),
+    )
+    # Apply optional extra fields
+    if payload.get("mission_id"):
+        task["mission_id"] = normalize_text(payload["mission_id"], 32)
+    if payload.get("story_points") in (1, 2, 3, 5, 8, 13):
+        task["story_points"] = int(payload["story_points"])
+    if payload.get("sprint_id"):
+        task["sprint_id"] = normalize_text(payload["sprint_id"], 20)
+    if payload.get("definition_of_done"):
+        task["definition_of_done"] = normalize_list(payload["definition_of_done"], 10, 200)
+    if payload.get("validation_steps"):
+        task["validation_steps"] = normalize_list(payload["validation_steps"], 10, 200)
+    task["comments"] = []
+    state.setdefault("tasks", []).insert(0, task)
+    add_event(state, "task_created", f"{task_id} created", owner or "ceo", title, project_id)
+    save_state(state)
+    snap = snapshot_state(state)
+    output = next((t for t in snap["tasks"] if t["id"] == task_id), task)
+    return {"ok": True, "task": output}, None
+
+
+def delete_task(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """Permanently delete a task by ID."""
+    task_id = normalize_text(payload.get("task_id") or payload.get("id"), 32)
+    if not task_id:
+        return None, "task_id is required"
+    idx = next((i for i, t in enumerate(state.get("tasks", [])) if t["id"] == task_id), None)
+    if idx is None:
+        return None, f"unknown task: {task_id}"
+    task = state["tasks"].pop(idx)
+    # Remove from mission task_ids lists
+    for mission in state.get("missions", []):
+        if task_id in mission.get("task_ids", []):
+            mission["task_ids"] = [tid for tid in mission["task_ids"] if tid != task_id]
+    # Propagate dependency removal
+    for t in state.get("tasks", []):
+        if task_id in t.get("depends_on", []):
+            t["depends_on"] = [d for d in t["depends_on"] if d != task_id]
+        if task_id in t.get("blocking", []):
+            t["blocking"] = [d for d in t["blocking"] if d != task_id]
+    add_event(state, "task_deleted", f"{task_id} deleted", "ceo", task.get("title", task_id), task.get("project_id"))
+    save_state(state)
+    return {"ok": True, "task_id": task_id}, None
+
+
+def add_task_comment(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """Append a comment to a task's comments array."""
+    task_id = normalize_text(payload.get("task_id") or payload.get("id"), 32)
+    if not task_id:
+        return None, "task_id is required"
+    text = normalize_text(payload.get("text") or payload.get("comment"), 500)
+    if not text:
+        return None, "text is required"
+    task = next((t for t in state.get("tasks", []) if t["id"] == task_id), None)
+    if not task:
+        return None, f"unknown task: {task_id}"
+    author = normalize_text(payload.get("author") or payload.get("sender") or "ceo", 32)
+    comment = {
+        "id": f"CM-{int(time.time() * 1000)}-{len(task.get('comments', []))}",
+        "author": author,
+        "text": text,
+        "timestamp": iso_now(),
+    }
+    task.setdefault("comments", []).append(comment)
+    task["updated_at"] = iso_now()
+    add_event(state, "task_note", f"{task_id}: comment by {author}", author, text[:80], task.get("project_id"))
+    save_state(state)
+    return {"ok": True, "comment": comment, "task_id": task_id}, None
+
+
+def delete_mission(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """Permanently delete a mission by ID."""
+    mission_id = normalize_text(payload.get("mission_id") or payload.get("id"), 32)
+    if not mission_id:
+        return None, "mission_id is required"
+    idx = next((i for i, m in enumerate(state.get("missions", [])) if m["id"] == mission_id), None)
+    if idx is None:
+        return None, f"unknown mission: {mission_id}"
+    mission = state["missions"].pop(idx)
+    # Unlink tasks that belong to this mission
+    for task in state.get("tasks", []):
+        if task.get("mission_id") == mission_id:
+            task["mission_id"] = ""
+    add_event(state, "mission_deleted", f"Mission {mission_id} deleted", "ceo", mission.get("title", mission_id), mission.get("project_id"))
+    save_state(state)
+    return {"ok": True, "mission_id": mission_id}, None
+
+
+def delete_sprint(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """Delete a sprint. Tasks assigned to it become unsprinted."""
+    sprint_id = normalize_text(payload.get("sprint_id") or payload.get("id"), 20)
+    if not sprint_id:
+        return None, "sprint_id is required"
+    idx = next((i for i, s in enumerate(state.get("sprints", [])) if s["id"] == sprint_id), None)
+    if idx is None:
+        return None, f"unknown sprint: {sprint_id}"
+    sprint = state["sprints"].pop(idx)
+    for task in state.get("tasks", []):
+        if task.get("sprint_id") == sprint_id:
+            task["sprint_id"] = None
+    add_event(state, "sprint_deleted", f"Sprint {sprint['name']} deleted", "ceo", f"Sprint {sprint_id} removed", sprint.get("project_id", ""))
+    save_state(state)
+    return {"ok": True, "sprint_id": sprint_id}, None
+
+
+def delete_project(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """Delete a project. Tasks and agents referencing it keep their project_id for history."""
+    project_id = normalize_text(payload.get("project_id") or payload.get("id"), 32)
+    if not project_id:
+        return None, "project_id is required"
+    if project_id == "ceo-console":
+        return None, "cannot delete the default ceo-console project"
+    idx = next((i for i, p in enumerate(state.get("projects", [])) if p["id"] == project_id), None)
+    if idx is None:
+        return None, f"unknown project: {project_id}"
+    project = state["projects"].pop(idx)
+    add_event(state, "project_deleted", f"Project {project.get('name', project_id)} deleted", "ceo", f"Project {project_id} removed", project_id)
+    save_state(state)
+    return {"ok": True, "project_id": project_id}, None
+
+
 

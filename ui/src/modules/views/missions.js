@@ -175,11 +175,26 @@ function submitMissionForm(){
     if(idx>=0)missionsLocal[idx]={...missionsLocal[idx],...newMission};
   } else {
     missionsLocal.unshift(newMission);
-    // Flash missions nav badge
     const nvMiss=document.getElementById('NV_MISS');
     const badge=mk('span','');badge.style.cssText='width:8px;height:8px;border-radius:50%;background:var(--ac);animation:pu 2s infinite;display:inline-block;margin-left:6px';
     nvMiss.appendChild(badge);setTimeout(()=>badge.remove(),10000);
   }
+  // Persist via API
+  const missionPayload={
+    agent_id:ownerId,title:newMission.title,objective:newMission.objective,
+    status:newMission.status,priority:newMission.priority,horizon:newMission.horizon,
+    project_ids:newMission.project_ids,next_actions:newMission.next_actions,
+    assigned_agents:newMission.assigned_agents,
+  };
+  if(editingMissionId)missionPayload.mission_id=editingMissionId;
+  apiPost('/api/missions/plan',missionPayload).then(res=>{
+    if(res&&res.mission&&!editingMissionId){
+      // Replace optimistic entry with server ID
+      const idx=missionsLocal.findIndex(m=>m.id===newMission.id);
+      if(idx>=0)missionsLocal[idx]={...missionsLocal[idx],...res.mission};
+      buildMissions();
+    }
+  }).catch(()=>{});
   closeMissionForm();buildMissions();
 }
 

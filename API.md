@@ -209,6 +209,87 @@ done → validation
 
 ---
 
+## POST /api/tasks/create
+
+Create a new task directly. Available to both human operators (GUI) and AI agents.
+
+**Body:**
+```json
+{
+  "title": "Implement OAuth login",
+  "description": "Add Google OAuth support to the login page",
+  "project_id": "atlas-core",
+  "owner": "codex",
+  "specialist": "code",
+  "priority": "P1",
+  "status": "backlog",
+  "story_points": 5,
+  "definition_of_done": ["Implementation complete", "Tests passing", "Reviewed"],
+  "write_token": "change-me-local"
+}
+```
+
+All fields except `title` are optional.
+
+**Response:**
+```json
+{
+  "ok": true,
+  "task": {"id": "T-216", "title": "Implement OAuth login", "status": "backlog", ...}
+}
+```
+
+---
+
+## POST /api/tasks/delete
+
+Permanently delete a task. Removes it from missions and dependency chains.
+
+**Body:**
+```json
+{
+  "task_id": "T-216",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{ "ok": true, "task_id": "T-216" }
+```
+
+---
+
+## POST /api/tasks/comment
+
+Append a comment to a task. Comments are stored in the task's `comments[]` array.
+
+**Body:**
+```json
+{
+  "task_id": "T-203",
+  "text": "Verified on staging — all filter combinations work correctly.",
+  "author": "ralph",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "task_id": "T-203",
+  "comment": {
+    "id": "CM-1711234567890-0",
+    "author": "ralph",
+    "text": "Verified on staging — all filter combinations work correctly.",
+    "timestamp": "2026-03-21T10:00:00+00:00"
+  }
+}
+```
+
+---
+
 ## POST /api/missions/plan
 
 Chief agent proposes a new mission. Creates child tasks automatically.
@@ -250,6 +331,63 @@ Chief agent proposes a new mission. Creates child tasks automatically.
   "mission_control": {...},
   "operation": "created"
 }
+```
+
+---
+
+## POST /api/missions/delete
+
+Permanently delete a mission. Tasks linked to it are unlinked but not deleted.
+
+**Body:**
+```json
+{
+  "mission_id": "M-301",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{ "ok": true, "mission_id": "M-301" }
+```
+
+---
+
+## POST /api/sprints/delete
+
+Delete a sprint. Tasks assigned to it become unsprinted.
+
+**Body:**
+```json
+{
+  "sprint_id": "SPR-007",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{ "ok": true, "sprint_id": "SPR-007" }
+```
+
+---
+
+## POST /api/projects/delete
+
+Delete a project. Tasks and agents referencing it keep their `project_id` for history. Cannot delete the built-in `ceo-console` project.
+
+**Body:**
+```json
+{
+  "project_id": "atlas-core",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{ "ok": true, "project_id": "atlas-core" }
 ```
 
 ---
