@@ -1,4 +1,4 @@
-# ClawTasker CEO Console v1.2.0 — API Reference
+# ClawTasker CEO Console v1.5.0 — API Reference
 
 Base URL: `http://127.0.0.1:3000` (configurable via env vars)
 
@@ -21,7 +21,7 @@ Returns server health and version information.
 {
   "ok": true,
   "time": "2026-03-21T09:30:00+00:00",
-  "version": "1.2.0",
+  "version": "1.5.0",
   "booted_at": "2026-03-21T08:00:00+00:00",
   "role": "visualization-companion",
   "visualization_only": true,
@@ -49,7 +49,7 @@ Returns the full current state: agents, tasks, projects, events, missions, conve
   "missions": [...],
   "conversations": [...],
   "ui_settings": {...},
-  "version": "1.2.0",
+  "version": "1.5.0",
   "timestamp": "2026-03-21T09:30:00+00:00"
 }
 ```
@@ -564,6 +564,62 @@ Merge a source agent into a target agent: transfers all tasks and missions, comb
 ```
 
 **Constraints:** Source and target must be different agents. Cannot merge the CEO.
+
+---
+
+## POST /api/agents/update
+
+Update any mutable field on an existing agent without a full re-register.
+
+**Body:**
+```json
+{
+  "agent_id": "orion",
+  "name": "Orion",
+  "role": "Chief of Staff",
+  "emoji": "🚀",
+  "skills": ["planning", "triage", "routing"],
+  "specialists": ["planning"],
+  "note": "Running the morning sweep.",
+  "write_token": "change-me-local"
+}
+```
+
+All fields except `agent_id` and `write_token` are optional. Only fields present in the body are updated.
+
+**Mutable fields:** `name`, `role`, `manager`, `emoji`, `profile_hue`, `department`, `org_level`, `team_id`, `team_name`, `coordination_scope`, `manager_title`, `avatar_ref`, `project_id`, `note`, `done_summary`, `doing_summary`, `next_summary`, `status`, `skills`, `specialists`, `allowed_tools`, `blockers`, `collaborating_with`
+
+**Response:**
+```json
+{
+  "ok": true,
+  "agent": { "id": "orion", "name": "Orion", "role": "Chief of Staff", ... }
+}
+```
+
+---
+
+## POST /api/agents/delete
+
+Permanently remove an agent from the roster. All tasks and missions previously owned by the agent are unassigned (not deleted).
+
+**Body:**
+```json
+{
+  "agent_id": "iris",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "deleted": "iris"
+}
+```
+
+**Constraints:** Cannot delete the chief agent.
 
 ---
 

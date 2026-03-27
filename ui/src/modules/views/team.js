@@ -6,13 +6,13 @@ function buildOrg(){
   cl.appendChild(mkOrgCard({id:'ceo',name:'You',role:'CEO / Human operator',hue:'planning',skills:['priorities','approvals','exceptions']},true));
   el.appendChild(cl);
   // Chief row
-  const chief=AGENTS.find(a=>a.id==='orion')||AGENTS[0];
+  const chief=AGENTS.find(a=>a.org_level==='chief')||AGENTS.find(a=>a.id==='orion')||AGENTS[0];
   if(chief&&chief.status!=='offline'){
     const ch=mk('div','org-chief');ch.appendChild(mkOrgCard(chief,true));el.appendChild(ch);
   }
   const ln=mk('div','org-hline');el.appendChild(ln);
   // Manager lanes (active only)
-  const mgrs=AGENTS.filter(a=>['codex','charlie','quill','violet'].includes(a.id)&&a.status!=='offline');
+  const mgrs=AGENTS.filter(a=>a.org_level==='manager'&&a.status!=='offline');
   if(mgrs.length){
     const gr=mk('div','org-grid');
     mgrs.forEach(mgr=>{
@@ -47,10 +47,12 @@ function buildOrg(){
       del.onmouseenter=()=>del.style.background='var(--dns)';
       del.onmouseleave=()=>del.style.background='transparent';
       del.onclick=()=>{
-        if(!confirm('Permanently remove '+ag.name+' from the org chart?\n\nThis only removes them from the local display.'))return;
-        const idx=AGENTS.findIndex(a=>a.id===ag.id);
-        if(idx>=0)AGENTS.splice(idx,1);
-        buildOrg();buildRoster();
+        if(!confirm('Permanently remove '+ag.name+' from the roster? This cannot be undone.'))return;
+        apiPost('/api/agents/delete',{agent_id:ag.id}).then(()=>{
+          const idx=AGENTS.findIndex(a=>a.id===ag.id);
+          if(idx>=0)AGENTS.splice(idx,1);
+          buildOrg();buildRoster();
+        }).catch(err=>alert('Delete failed: '+(err.message||err)));
       };
       card.appendChild(del);
       row.appendChild(card);

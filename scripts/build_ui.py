@@ -33,6 +33,7 @@ def build(version_override=None):
     
     # 3. Body
     body = read_file(os.path.join(SRC_DIR, manifest['html']['body']))
+    body = re.sub(r'v\d+\.\d+\.\d+', f'v{version}', body)
     
     # 4. JS — support both sections (legacy) and modules (new)
     js_parts = []

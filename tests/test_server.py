@@ -4,6 +4,8 @@ import unittest
 from contextlib import contextmanager
 from pathlib import Path
 
+_EXPECTED_VERSION = (Path(__file__).resolve().parent.parent / 'VERSION').read_text(encoding='utf-8').strip()
+
 from PIL import Image
 
 import server
@@ -45,7 +47,7 @@ class ServerTests(unittest.TestCase):
     def test_server_defaults_are_local_first(self):
         self.assertEqual(server.HOST, '127.0.0.1')
         self.assertEqual(server.PORT, 3000)
-        self.assertEqual(server.APP_VERSION, '1.5.0')
+        self.assertEqual(server.APP_VERSION, _EXPECTED_VERSION)
 
     def test_attention_queue_flags_blocked_and_validation(self):
         state = server.default_state()
@@ -176,7 +178,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(error, 'unknown agent: nobody')
 
     def test_health_role_is_visualization_companion(self):
-        self.assertEqual(server.APP_VERSION, (Path(server.__file__).resolve().parent / 'VERSION').read_text(encoding='utf-8').strip())
+        self.assertEqual(server.APP_VERSION, _EXPECTED_VERSION)
 
     def test_snapshot_contains_system_health_recovery_and_agent_api_contract(self):
         state = server.default_state()
@@ -1111,8 +1113,8 @@ class V1ImprovementsTests(unittest.TestCase):
     def test_version_is_v1_0_5(self):
         from pathlib import Path
         ver_file = (Path(server.__file__).resolve().parent / 'VERSION').read_text().strip()
-        self.assertEqual(ver_file, '1.5.0')
-        self.assertEqual(server.APP_VERSION, '1.5.0')
+        self.assertEqual(ver_file, _EXPECTED_VERSION)
+        self.assertEqual(server.APP_VERSION, _EXPECTED_VERSION)
 
 
 
@@ -1948,3 +1950,92 @@ class CRUDTests(unittest.TestCase):
         self.assertIsNone(next((s for s in state['sprints'] if s['id'] == sprint_id), None))
         # Task should be unsprinted
         self.assertIsNone(state['tasks'][0].get('sprint_id'))
+
+
+class AgentCRUDTests(unittest.TestCase):
+
+    def _make_state_with_agent(self, agent_id="iris", org_level="specialist"):
+        state = server.default_state()
+        # Add a disposable test agent if not already present
+        if not any(a["id"] == agent_id for a in state["agents"]):
+            state["agents"].append(server.enrich_agent_record({
+                "id": agent_id, "name": "Iris", "role": "HR Specialist",
+                "status": "idle", "skills": ["hr", "onboarding"],
+                "specialists": ["hr"], "org_level": org_level,
+                "project_id": "ceo-console", "last_heartbeat": server.iso_now(),
+                "blockers": [], "collaborating_with": [], "speaking": False,
+            }))
+        return state
+
+    def test_update_agent_name_and_role(self):
+        state = self._make_state_with_agent()
+        result, error = server.update_agent(state, {"agent_id": "iris", "name": "Iris Updated", "role": "Senior HR"})
+        self.assertIsNone(error)
+        self.assertTrue(result["ok"])
+        agent = next(a for a in state["agents"] if a["id"] == "iris")
+        self.assertEqual(agent["name"], "Iris Updated")
+        self.assertEqual(agent["role"], "Senior HR")
+
+    def test_update_agent_emoji(self):
+        state = self._make_state_with_agent()
+        result, error = server.update_agent(state, {"agent_id": "iris", "emoji": "🌟"})
+        self.assertIsNone(error)
+        agent = next(a for a in state["agents"] if a["id"] == "iris")
+        self.assertEqual(agent["emoji"], "🌟")
+
+    def test_update_agent_skills(self):
+        state = self._make_state_with_agent()
+        result, error = server.update_agent(state, {"agent_id": "iris", "skills": ["recruiting", "onboarding", "culture"]})
+        self.assertIsNone(error)
+        agent = next(a for a in state["agents"] if a["id"] == "iris")
+        self.assertIn("recruiting", agent["skills"])
+
+    def test_update_agent_unknown_id(self):
+        state = server.default_state()
+        result, error = server.update_agent(state, {"agent_id": "no-such-agent", "name": "Ghost"})
+        self.assertIsNotNone(error)
+        self.assertIn("unknown agent", error)
+
+    def test_update_agent_requires_agent_id(self):
+        state = server.default_state()
+        result, error = server.update_agent(state, {"name": "Nobody"})
+        self.assertIsNotNone(error)
+        self.assertIn("agent_id is required", error)
+
+    def test_delete_agent_removes_from_roster(self):
+        state = self._make_state_with_agent()
+        ids_before = [a["id"] for a in state["agents"]]
+        self.assertIn("iris", ids_before)
+        result, error = server.delete_agent(state, {"agent_id": "iris"})
+        self.assertIsNone(error)
+        self.assertTrue(result["ok"])
+        ids_after = [a["id"] for a in state["agents"]]
+        self.assertNotIn("iris", ids_after)
+
+    def test_delete_agent_unassigns_tasks(self):
+        state = self._make_state_with_agent()
+        # Assign a task to iris
+        state["tasks"][0]["owner"] = "iris"
+        server.delete_agent(state, {"agent_id": "iris"})
+        self.assertEqual(state["tasks"][0]["owner"], "")
+
+    def test_delete_agent_unknown_id(self):
+        state = server.default_state()
+        result, error = server.delete_agent(state, {"agent_id": "no-such-agent"})
+        self.assertIsNotNone(error)
+        self.assertIn("unknown agent", error)
+
+    def test_delete_agent_chief_protected(self):
+        state = server.default_state()
+        chief_id = state.get("org", {}).get("chief_agent_id") or "orion"
+        result, error = server.delete_agent(state, {"agent_id": chief_id})
+        self.assertIsNotNone(error)
+        self.assertIn("cannot delete", error)
+
+    def test_org_chart_managers_use_org_level(self):
+        """Verify that manager agents carry org_level=manager so the GUI filter works."""
+        state = server.default_state()
+        managers = [a for a in state["agents"] if a.get("org_level") == "manager"]
+        self.assertGreater(len(managers), 0, "Expected at least one manager-level agent in default state")
+
+

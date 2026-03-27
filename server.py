@@ -37,7 +37,7 @@ API_TOKEN = os.getenv("CLAWTASKER_API_TOKEN", "change-me-local")
 WRITE_LIMIT_PER_MINUTE = int(os.getenv("CLAWTASKER_WRITE_LIMIT", "30"))
 HEARTBEAT_STALE_SECONDS = int(os.getenv("CLAWTASKER_STALE_SECONDS", "180"))
 MAX_BODY_BYTES = 160 * 1024
-APP_VERSION = "1.5.0"
+APP_VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
 OPENCLAW_LATEST = {
     "release_title": "openclaw 2026.3.13",
@@ -2007,6 +2007,7 @@ def default_state() -> Dict[str, Any]:
 
     state = {
         "version": APP_VERSION,
+        "state_version": APP_VERSION,
         "created_at": iso_now(),
         "company": company,
         "openclaw_integration": {
@@ -2253,16 +2254,25 @@ def load_state() -> Dict[str, Any]:
             if state is None:
                 continue
             changed = False
-            for key in ["asset_library", "workspace", "sync_contract", "company", "platform_contract", "openclaw_integration", "skill_catalog", "org_templates", "office_layout"]:
-                if key not in state and key in defaults:
+            # Auto-merge ALL top-level keys from defaults so any new key added
+            # to default_state() in a future version is automatically populated
+            # in existing installations on first startup after upgrade.
+            for key in defaults:
+                if key not in state:
                     state[key] = copy.deepcopy(defaults[key])
                     changed = True
-            for key in ["asset_library", "office_layout"]:
+            # Deep-merge sub-keys for dict-typed sections
+            for key in defaults:
                 if isinstance(state.get(key), dict) and isinstance(defaults.get(key), dict):
                     for subkey, value in defaults[key].items():
                         if subkey not in state[key]:
                             state[key][subkey] = copy.deepcopy(value)
                             changed = True
+            # Stamp the state with the current app version so we can track
+            # which version last wrote this file.
+            if state.get("state_version") != APP_VERSION:
+                state["state_version"] = APP_VERSION
+                changed = True
             # Migrate: ensure all tasks have comments array (added in CRUD update)
             for task in state.get("tasks", []):
                 if "comments" not in task:
@@ -4196,6 +4206,26 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
                 send_json(self, HTTPStatus.OK, result)
             return
 
+        if parsed.path == "/api/agents/update":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = update_agent(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/agents/delete":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = delete_agent(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
         if parsed.path == "/api/org/configure":
             with STATE_LOCK:
                 state = load_state()
@@ -4522,6 +4552,71 @@ def decommission_agent(state, payload):
         "reason": reason,
         "tasks_unassigned": unassigned_tasks,
     }, None
+
+
+def update_agent(state, payload):
+    """Update mutable fields on an existing agent without a full re-register."""
+    agent_id = normalize_text(payload.get("agent_id") or payload.get("id"), 64)
+    if not agent_id:
+        return None, "agent_id is required"
+    agent = next((a for a in state.get("agents", []) if a["id"] == agent_id), None)
+    if not agent:
+        return None, f"unknown agent: {agent_id}"
+    mutable_scalars = [
+        "name", "role", "manager", "profile_hue", "department",
+        "org_level", "team_id", "team_name", "coordination_scope",
+        "manager_title", "avatar_ref", "project_id", "note",
+        "done_summary", "doing_summary", "next_summary", "status",
+    ]
+    for field in mutable_scalars:
+        if field in payload:
+            agent[field] = normalize_text(payload[field], 220)
+    # emoji may contain supplementary Unicode chars (above U+FFFF) — assign directly
+    if "emoji" in payload and payload["emoji"] not in (None, ""):
+        agent["emoji"] = str(payload["emoji"])[:8]
+    if "skills" in payload:
+        agent["skills"] = normalize_list(payload["skills"], 10, 40)
+    if "specialists" in payload:
+        agent["specialists"] = normalize_list(payload["specialists"], 8, 32)
+    if "allowed_tools" in payload:
+        agent["allowed_tools"] = normalize_list(payload["allowed_tools"], 12, 24)
+    if "blockers" in payload:
+        agent["blockers"] = normalize_list(payload["blockers"], 6, 100)
+    if "collaborating_with" in payload:
+        agent["collaborating_with"] = normalize_list(payload["collaborating_with"], 8, 24)
+    enrich_agent_record(agent)
+    save_state(state)
+    add_event(state, "agent_update", f"{agent['name']} profile updated", agent_id, "", agent.get("project_id") or "ceo-console")
+    return {"ok": True, "agent": agent}, None
+
+
+def delete_agent(state, payload):
+    """Permanently remove an agent from the roster and unassign their work."""
+    agent_id = normalize_text(payload.get("agent_id") or payload.get("id"), 64)
+    if not agent_id:
+        return None, "agent_id is required"
+    chief_id = state.get("org", {}).get("chief_agent_id") or "orion"
+    if agent_id == chief_id:
+        return None, "cannot delete the chief agent"
+    agent = next((a for a in state.get("agents", []) if a["id"] == agent_id), None)
+    if not agent:
+        return None, f"unknown agent: {agent_id}"
+    agent_name = agent.get("name", agent_id)
+    # Unassign tasks
+    for task in state.get("tasks", []):
+        if task.get("owner") == agent_id:
+            task["owner"] = ""
+        if task.get("validation_owner") == agent_id:
+            task["validation_owner"] = ""
+    # Unlink from missions
+    for mission in state.get("missions", []):
+        if mission.get("owner") == agent_id:
+            mission["owner"] = ""
+        mission["agent_ids"] = [a for a in mission.get("agent_ids", []) if a != agent_id]
+    state["agents"] = [a for a in state["agents"] if a["id"] != agent_id]
+    save_state(state)
+    add_event(state, "agent_delete", f"{agent_name} permanently removed from roster", agent_id, "", "ceo-console")
+    return {"ok": True, "deleted": agent_id}, None
 
 
 def retire_agent(state, payload):
