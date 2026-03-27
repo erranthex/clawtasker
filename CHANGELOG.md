@@ -1,5 +1,38 @@
 # ClawTasker CEO Console — Changelog
 
+## vNext — CRUD + Comments (2026-03-27)
+
+### Added
+- `POST /api/tasks/create` — create tasks directly (AI agents and GUI); auto-generates ID; returns enriched task object
+- `POST /api/tasks/delete` — permanently delete a task; cleans mission `task_ids` lists and dependency chains
+- `POST /api/tasks/comment` — append `{author, text, timestamp}` comment to any task; persists across restarts
+- `POST /api/missions/delete` — delete mission; tasks preserved with `mission_id` cleared
+- `POST /api/sprints/delete` — delete sprint; assigned tasks become unsprinted (`sprint_id` set to null)
+- `POST /api/projects/delete` — delete project (`ceo-console` protected from deletion)
+- `POST /api/agents/retire` — mark agent offline; optionally transfer tasks/missions to successor
+- `POST /api/agents/replace` — transfer all assignments from old agent to new; retire old agent
+- `POST /api/agents/merge` — absorb source agent into target (tasks, missions, skills); retire source
+- `POST /api/blank/reset` — reset to minimal blank state (no demo data)
+- `POST /api/org/bootstrap` — apply company info + agent/project manifest to blank state
+- GUI: task detail modal shows comments thread + inline "Add comment" input
+- GUI: Edit and Delete action buttons on task detail modal
+- GUI: task create/edit/reassign operations now persist via API with optimistic fallback
+- GUI: mission create/edit persists via `POST /api/missions/plan`
+- GUI: pipeline and mission delete buttons call server delete endpoints
+
+### Fixed
+- `/api/agents/decommission` route: removed undefined `check_auth()` calls that caused `NameError` crashes
+- `/api/agents/decommission` route: replaced undefined `body` variable with `payload`
+- Removed duplicate dead-code route blocks for decommission and org/configure
+- `decommission_agent()` now emits `agent_decommission` event to event log (previously silent)
+- Fixed 6 additional route blocks (`org/configure`, `sprints/create`, `sprints/update`, `projects/configure`, `notifications/dismiss`) with same `check_auth`/`body` bugs
+
+### Migration
+- Existing `state.json` files are automatically migrated on first load: all tasks gain `comments: []`
+- No manual action required; data is never lost on upgrade
+
+---
+
 ## v1.5.0 — 2026-03-22 (Architecture Modularization Phase 6: GitHub Release)
 
 **Release Date:** 2026-03-22

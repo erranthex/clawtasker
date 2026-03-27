@@ -2263,6 +2263,11 @@ def load_state() -> Dict[str, Any]:
                         if subkey not in state[key]:
                             state[key][subkey] = copy.deepcopy(value)
                             changed = True
+            # Migrate: ensure all tasks have comments array (added in CRUD update)
+            for task in state.get("tasks", []):
+                if "comments" not in task:
+                    task["comments"] = []
+                    changed = True
             if refresh_demo_state(state):
                 changed = True
             if label != "primary":

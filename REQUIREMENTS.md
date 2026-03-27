@@ -143,3 +143,49 @@ SQLite database for persistent storage of all platform items.
 - [ ] Server integration with SQLite (planned v1.6.0)
 - [ ] Data persists across browser sessions
 - [ ] Search and retrieval of items
+
+---
+
+## REQ-011 · Direct Task Create & Delete
+**Priority:** P0 · **Status:** Done
+
+### Description
+Tasks can be created and deleted directly via API endpoint and GUI, without requiring a mission or conversation as an intermediary. Deletions clean up all downstream references.
+
+### Acceptance Criteria
+- [x] `POST /api/tasks/create` — accepts title (required) + all optional task fields; auto-generates ID; returns enriched task object
+- [x] `POST /api/tasks/delete` — permanently removes task; cleans mission `task_ids` lists and dependency chains (`depends_on` / `blocking`)
+- [x] GUI task creation modal (`openNewTaskForm`) persists via API; falls back to optimistic local insert on error
+- [x] GUI task detail modal has Edit and Delete action buttons
+- [x] GUI pipeline table delete button (`×`) persists via API
+- [x] New tasks initialised with `comments: []`
+
+---
+
+## REQ-012 · Task Comments
+**Priority:** P1 · **Status:** Done
+
+### Description
+Any task can have a thread of comments, each with author, text, and timestamp. Comments are appendable by both human operators (GUI) and AI agents (API).
+
+### Acceptance Criteria
+- [x] `POST /api/tasks/comment` — appends `{id, author, text, timestamp}` to `task.comments[]`; returns comment object
+- [x] Task detail modal shows existing comments and an inline "Add comment" input with Post button
+- [x] Comments persist across server restarts (stored in `state.json`)
+- [x] Old `state.json` files without `comments` field are automatically migrated on load — no data loss
+- [x] Empty text rejected with `"text is required"` error
+
+---
+
+## REQ-013 · Delete for Missions, Sprints, and Projects
+**Priority:** P1 · **Status:** Done
+
+### Description
+Missions, sprints, and projects can be permanently deleted. Deletions are non-cascading: linked tasks, agents, and references are preserved or cleaned gracefully.
+
+### Acceptance Criteria
+- [x] `POST /api/missions/delete` — removes mission; tasks that referenced it have `mission_id` cleared; emits `mission_deleted` event
+- [x] `POST /api/sprints/delete` — removes sprint; tasks assigned to it have `sprint_id` set to `None`; emits `sprint_deleted` event
+- [x] `POST /api/projects/delete` — removes project; tasks and agents retain their `project_id` for history; `ceo-console` is protected from deletion; emits `project_deleted` event
+- [x] GUI mission card delete button persists via API
+- [x] All three endpoints available to AI agents via API

@@ -1832,3 +1832,120 @@ class NotificationTests(unittest.TestCase):
         # - verify at least the agent is offline
         echo = next(a for a in state['agents'] if a['id'] == 'echo')
         self.assertEqual(echo['status'], 'offline')
+
+
+class CRUDTests(unittest.TestCase):
+
+    # ── Task create ──────────────────────────────────────────────────────────
+
+    def test_create_task_returns_task_with_generated_id(self):
+        state = server.default_state()
+        result, error = server.create_task(state, {'title': 'Test task'})
+        self.assertIsNone(error)
+        self.assertTrue(result['ok'])
+        task = result['task']
+        self.assertTrue(task['id'].startswith('T-'))
+        self.assertEqual(task['title'], 'Test task')
+        self.assertEqual(task['comments'], [])
+        # Task is also in state
+        ids = [t['id'] for t in state['tasks']]
+        self.assertIn(task['id'], ids)
+
+    def test_create_task_requires_title(self):
+        state = server.default_state()
+        result, error = server.create_task(state, {'title': ''})
+        self.assertIsNotNone(error)
+        self.assertIn('title is required', error)
+
+    def test_create_task_rejects_duplicate_id(self):
+        state = server.default_state()
+        existing_id = state['tasks'][0]['id']
+        result, error = server.create_task(state, {'title': 'Duplicate', 'id': existing_id})
+        self.assertIsNotNone(error)
+        self.assertIn('already exists', error)
+
+    # ── Task delete ──────────────────────────────────────────────────────────
+
+    def test_delete_task_removes_from_state(self):
+        state = server.default_state()
+        before = len(state['tasks'])
+        task_id = state['tasks'][0]['id']
+        result, error = server.delete_task(state, {'task_id': task_id})
+        self.assertIsNone(error)
+        self.assertTrue(result['ok'])
+        self.assertEqual(len(state['tasks']), before - 1)
+        self.assertIsNone(next((t for t in state['tasks'] if t['id'] == task_id), None))
+
+    def test_delete_task_cleans_mission_task_ids(self):
+        state = server.default_state()
+        task_id = state['tasks'][0]['id']
+        # Plant task_id in a mission
+        state['missions'][0].setdefault('task_ids', []).append(task_id)
+        server.delete_task(state, {'task_id': task_id})
+        for mission in state['missions']:
+            self.assertNotIn(task_id, mission.get('task_ids', []))
+
+    def test_delete_task_cleans_dependency_chains(self):
+        state = server.default_state()
+        tid_a = state['tasks'][0]['id']
+        tid_b = state['tasks'][1]['id']
+        state['tasks'][1]['depends_on'] = [tid_a]
+        state['tasks'][0]['blocking'] = [tid_b]
+        server.delete_task(state, {'task_id': tid_a})
+        self.assertNotIn(tid_a, state['tasks'][0].get('depends_on', []))
+        for t in state['tasks']:
+            self.assertNotIn(tid_a, t.get('blocking', []))
+
+    # ── Task comment ─────────────────────────────────────────────────────────
+
+    def test_add_task_comment_appends_to_comments_array(self):
+        state = server.default_state()
+        task_id = state['tasks'][0]['id']
+        state['tasks'][0]['comments'] = []
+        result, error = server.add_task_comment(state, {
+            'task_id': task_id, 'text': 'Looks good!', 'author': 'ralph'
+        })
+        self.assertIsNone(error)
+        self.assertTrue(result['ok'])
+        comment = result['comment']
+        self.assertEqual(comment['author'], 'ralph')
+        self.assertEqual(comment['text'], 'Looks good!')
+        self.assertIn('timestamp', comment)
+        self.assertEqual(len(state['tasks'][0]['comments']), 1)
+
+    def test_add_task_comment_requires_text(self):
+        state = server.default_state()
+        task_id = state['tasks'][0]['id']
+        result, error = server.add_task_comment(state, {'task_id': task_id, 'text': ''})
+        self.assertIsNotNone(error)
+        self.assertIn('text is required', error)
+
+    # ── Mission delete ────────────────────────────────────────────────────────
+
+    def test_delete_mission_removes_and_unlinks_tasks(self):
+        state = server.default_state()
+        mission_id = state['missions'][0]['id']
+        # Link a task to the mission
+        state['tasks'][0]['mission_id'] = mission_id
+        before = len(state['missions'])
+        result, error = server.delete_mission(state, {'mission_id': mission_id})
+        self.assertIsNone(error)
+        self.assertTrue(result['ok'])
+        self.assertEqual(len(state['missions']), before - 1)
+        # Task's mission_id should be cleared
+        self.assertEqual(state['tasks'][0].get('mission_id', ''), '')
+
+    # ── Sprint delete ─────────────────────────────────────────────────────────
+
+    def test_delete_sprint_removes_and_unsprints_tasks(self):
+        state = server.default_state()
+        sprint, _ = server.create_sprint(state, {'name': 'Sprint X', 'project_id': 'ceo-console'})
+        sprint_id = sprint['sprint']['id']
+        # Assign a task to the sprint
+        state['tasks'][0]['sprint_id'] = sprint_id
+        result, error = server.delete_sprint(state, {'sprint_id': sprint_id})
+        self.assertIsNone(error)
+        self.assertTrue(result['ok'])
+        self.assertIsNone(next((s for s in state['sprints'] if s['id'] == sprint_id), None))
+        # Task should be unsprinted
+        self.assertIsNone(state['tasks'][0].get('sprint_id'))
