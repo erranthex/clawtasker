@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClawTasker — CEO Mission Control for AI + Human Teams</title>
+  <meta name="description" content="ClawTasker is an open-source, local-first mission-control console for managing teams of human and AI agents. Sprint boards, virtual office, REST API, no Node.js required.">
+  <meta name="keywords" content="ai agents, task management, project management, mission control, kanban, sprint board, virtual office, python, rest api, claude, openai, llm orchestration, ai team management">
+  <meta property="og:title" content="ClawTasker — CEO Mission Control for AI + Human Teams">
+  <meta property="og:description" content="Open-source platform for CEOs directing mixed human/AI teams. Sprint board, virtual office, full REST API. Zero Node.js dependencies.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      line-height: 1.6;
+    }
+    a { color: #58a6ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+    header {
+      border-bottom: 1px solid #21262d;
+      padding: 20px 0;
+    }
+    header .container { display: flex; align-items: center; gap: 12px; }
+    .logo { font-size: 1.3rem; font-weight: 700; color: #e6edf3; }
+    .badge {
+      background: #1f6feb;
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+    nav { margin-left: auto; display: flex; gap: 20px; font-size: 0.9rem; }
+
+    .hero {
+      padding: 72px 0 56px;
+      text-align: center;
+    }
+    .hero h1 {
+      font-size: 2.6rem;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #79c0ff 0%, #a371f7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      font-size: 1.15rem;
+      color: #8b949e;
+      max-width: 600px;
+      margin: 0 auto 36px;
+    }
+    .cta-group { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-block;
+      padding: 10px 22px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn:hover { opacity: .85; text-decoration: none; }
+    .btn-primary { background: #238636; color: #fff; }
+    .btn-secondary { background: #21262d; color: #e6edf3; border: 1px solid #30363d; }
+
+    .features {
+      padding: 56px 0;
+      border-top: 1px solid #21262d;
+    }
+    .features h2 {
+      text-align: center;
+      font-size: 1.7rem;
+      margin-bottom: 40px;
+      color: #e6edf3;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .card h3 { font-size: 1rem; margin-bottom: 8px; color: #79c0ff; }
+    .card p { font-size: 0.88rem; color: #8b949e; }
+
+    .stack {
+      padding: 48px 0;
+      border-top: 1px solid #21262d;
+    }
+    .stack h2 {
+      text-align: center;
+      font-size: 1.4rem;
+      margin-bottom: 28px;
+      color: #e6edf3;
+    }
+    .stack-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+    }
+    .pill {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 0.85rem;
+      color: #8b949e;
+    }
+
+    .quickstart {
+      padding: 48px 0;
+      border-top: 1px solid #21262d;
+    }
+    .quickstart h2 { font-size: 1.4rem; margin-bottom: 20px; color: #e6edf3; }
+    pre {
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      padding: 18px 20px;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      color: #e6edf3;
+      line-height: 1.7;
+    }
+    .comment { color: #6e7681; }
+
+    footer {
+      border-top: 1px solid #21262d;
+      padding: 32px 0;
+      text-align: center;
+      font-size: 0.85rem;
+      color: #6e7681;
+    }
+    footer a { color: #8b949e; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <span class="logo">ClawTasker</span>
+    <span class="badge">v1.5.0</span>
+    <nav>
+      <a href="https://github.com/erranthex/clawtasker">GitHub</a>
+      <a href="https://github.com/erranthex/clawtasker/blob/main/API.md">API Docs</a>
+      <a href="https://github.com/erranthex/clawtasker/blob/main/README.md">README</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="container">
+      <h1>Mission Control for<br>Human + AI Teams</h1>
+      <p>ClawTasker is an open-source, local-first CEO console for managing teams of
+        human and AI agents — sprint board, virtual office, REST API, and zero Node.js required.</p>
+      <div class="cta-group">
+        <a class="btn btn-primary" href="https://github.com/erranthex/clawtasker">View on GitHub</a>
+        <a class="btn btn-secondary" href="https://github.com/erranthex/clawtasker/blob/main/API.md">REST API Docs</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="container">
+      <h2>Everything a CEO needs to direct an AI team</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Virtual Office</h3>
+          <p>Live 2D office floor with animated agent sprites. See who's working, blocked, in a meeting, or offline — in real time.</p>
+        </div>
+        <div class="card">
+          <h3>Sprint Board</h3>
+          <p>Kanban board with Backlog → Ready → In Progress → Validation → Done. Story points, epics, task links, and acceptance criteria.</p>
+        </div>
+        <div class="card">
+          <h3>Mission Planner</h3>
+          <p>Create mission briefs with success criteria, staffing, dependencies, and risk tracking. Assign missions to agents directly.</p>
+        </div>
+        <div class="card">
+          <h3>REST API for AI Agents</h3>
+          <p>Every GUI action has an API equivalent. Agents register, send heartbeats, create tasks, post comments, and publish run results.</p>
+        </div>
+        <div class="card">
+          <h3>Dashboard</h3>
+          <p>CEO overview with attention queue, mission brief, staffing radar, risk indicators, and sprint velocity at a glance.</p>
+        </div>
+        <div class="card">
+          <h3>Zero Dependencies</h3>
+          <p>Python stdlib only. No Node.js, no npm, no Docker. Run with <code>python3 server.py</code> and open a browser.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack">
+    <div class="container">
+      <h2>Works with any AI agent</h2>
+      <div class="stack-grid">
+        <span class="pill">Claude / Claude Code</span>
+        <span class="pill">OpenAI / GPT</span>
+        <span class="pill">Gemini</span>
+        <span class="pill">Any HTTP-capable agent</span>
+        <span class="pill">Python agents</span>
+        <span class="pill">Custom LLM wrappers</span>
+        <span class="pill">OpenRouter</span>
+        <span class="pill">Local models</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="quickstart">
+    <div class="container">
+      <h2>Quick Start</h2>
+<pre><span class="comment"># 1. Clone the repo</span>
+git clone https://github.com/erranthex/clawtasker.git
+cd clawtasker
+
+<span class="comment"># 2. Set your API token</span>
+export CLAWTASKER_API_TOKEN="your-secret-token"
+
+<span class="comment"># 3. Start the server</span>
+python3 server.py
+
+<span class="comment"># 4. Open in browser</span>
+open http://localhost:3000</pre>
+      <p style="margin-top:16px; font-size:0.88rem; color:#8b949e;">
+        Or open <code>ui/dist/index.html</code> directly — no server needed for the demo mode.
+      </p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <p>
+      <a href="https://github.com/erranthex/clawtasker">erranthex/clawtasker</a> &nbsp;·&nbsp;
+      MIT License &nbsp;·&nbsp;
+      <a href="https://github.com/erranthex/clawtasker/blob/main/CHANGELOG.md">Changelog</a> &nbsp;·&nbsp;
+      <a href="https://github.com/erranthex/clawtasker/blob/main/API.md">API Reference</a>
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,9 +1,9 @@
-# ClawTasker CEO Console
+# ClawTasker — CEO Mission Control for Human + AI Teams
 
-**Version:** 1.5.0  
+**Version:** 1.5.0
 **For:** Human CEOs and AI Agents working together
 
-ClawTasker CEO Console is a **standalone, local-first mission-control platform** for managing teams of human and AI workers. It provides a single interface where a human CEO and AI agents collaborate on projects, tasks, schedules, decisions, and real-time office visualization.
+ClawTasker is an **open-source, local-first mission-control console** for managing teams of human and AI agents. Sprint board, virtual office, mission planner, REST API — runs with `python3 server.py`, no Node.js required.
 
 **Both humans and AI agents are first-class users** — every feature works through the GUI (for humans) and the REST API (for AI agents).
 
