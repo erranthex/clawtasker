@@ -1,5 +1,64 @@
 # ClawTasker CEO Console — Changelog
 
+## vNext — Task Field Completeness + Linked Issues + Activity Log (2026-03-27)
+
+### Added
+- **Task `type` field** — classify tasks as `bug`, `story`, `task`, `spike`, or `epic`; settable on create and via update; GUI create/edit modals show type selector; invalid values fall back to `"task"`
+- **Task `reporter` field** — records who filed the task; set on creation from `reporter`/`author` field (defaults to `"ceo"`); shown read-only in task detail view
+- **Task `acceptance_criteria` field** — structured list of completion conditions (distinct from DoD); editable in create/edit modals; shown as checklist in task detail view
+- **Task `links` field + `POST /api/tasks/link`** — typed bidirectional links between tasks; types: `relates-to`, `duplicates`, `blocks`, `is-blocked-by`, `child-of`, `parent-of`; symmetric reverse link added automatically; deleting a task removes dangling links on other tasks
+- **Task `assignees` field** — list of all assigned agent IDs; mirrors `owner` as the primary assignee
+- **Task `activity` log** — `update_task()` appends `{id, author, action, field, from, to, timestamp}` entries for `status`, `owner`, `priority`, and `horizon` changes; shown in task detail view below comments
+- **`POST /api/agents/update`** — update agent name, role, emoji, skills, org_level via API
+- **`POST /api/agents/delete`** — permanently remove an agent; protects chief; unassigns tasks and missions; GUI team view remove button now calls this endpoint
+- **Mission `status` dropdown** — mission form now shows Status field (draft/active/blocked/completed)
+- **Mission `success_criteria` field** — mission form now shows Success Criteria textarea; previously always saved as `[]`
+- **GUI task create/edit modals** — expanded with type selector, sprint/horizon/validator selectors, labels, blocked checkbox, Acceptance Criteria + DoD textareas
+- **Team chart** — managers identified by `org_level === "manager"` (was hardcoded agent ID list)
+- **Version single source of truth** — `APP_VERSION` reads from `VERSION` file; `build_ui.py` injects version into HTML; tests use dynamic `_EXPECTED_VERSION`
+
+### Fixed
+- Mission status and success_criteria were always reset on every save (ignored form values)
+- Team chart managers were hard-coded to specific agent IDs
+
+### Migration
+- Existing tasks gain: `type`, `reporter`, `acceptance_criteria`, `links`, `assignees`, `activity` — automatic on first load, no data lost
+
+---
+
+## vNext — CRUD + Comments (2026-03-27)
+
+### Added
+- `POST /api/tasks/create` — create tasks directly (AI agents and GUI); auto-generates ID; returns enriched task object
+- `POST /api/tasks/delete` — permanently delete a task; cleans mission `task_ids` lists and dependency chains
+- `POST /api/tasks/comment` — append `{author, text, timestamp}` comment to any task; persists across restarts
+- `POST /api/missions/delete` — delete mission; tasks preserved with `mission_id` cleared
+- `POST /api/sprints/delete` — delete sprint; assigned tasks become unsprinted (`sprint_id` set to null)
+- `POST /api/projects/delete` — delete project (`ceo-console` protected from deletion)
+- `POST /api/agents/retire` — mark agent offline; optionally transfer tasks/missions to successor
+- `POST /api/agents/replace` — transfer all assignments from old agent to new; retire old agent
+- `POST /api/agents/merge` — absorb source agent into target (tasks, missions, skills); retire source
+- `POST /api/blank/reset` — reset to minimal blank state (no demo data)
+- `POST /api/org/bootstrap` — apply company info + agent/project manifest to blank state
+- GUI: task detail modal shows comments thread + inline "Add comment" input
+- GUI: Edit and Delete action buttons on task detail modal
+- GUI: task create/edit/reassign operations now persist via API with optimistic fallback
+- GUI: mission create/edit persists via `POST /api/missions/plan`
+- GUI: pipeline and mission delete buttons call server delete endpoints
+
+### Fixed
+- `/api/agents/decommission` route: removed undefined `check_auth()` calls that caused `NameError` crashes
+- `/api/agents/decommission` route: replaced undefined `body` variable with `payload`
+- Removed duplicate dead-code route blocks for decommission and org/configure
+- `decommission_agent()` now emits `agent_decommission` event to event log (previously silent)
+- Fixed 6 additional route blocks (`org/configure`, `sprints/create`, `sprints/update`, `projects/configure`, `notifications/dismiss`) with same `check_auth`/`body` bugs
+
+### Migration
+- Existing `state.json` files are automatically migrated on first load: all tasks gain `comments: []`
+- No manual action required; data is never lost on upgrade
+
+---
+
 ## v1.5.0 — 2026-03-22 (Architecture Modularization Phase 6: GitHub Release)
 
 **Release Date:** 2026-03-22

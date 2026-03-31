@@ -24,10 +24,18 @@ function buildOffice(){
     spr.appendChild(wrap);
   });
   const scrum=document.getElementById('SCRUM');scrum.innerHTML='';
-  [{id:'violet',t:'8AM briefing (T-206)'},{id:'charlie',t:'Blocked — deploy secret (T-209)'},{id:'orion',t:'Routing morning ops'},{id:'codex',t:'Board filters (T-203)'},{id:'ralph',t:'Validation sweep (T-201)'},{id:'pixel',t:'Office polish (T-204)'}].forEach(s=>{
+  const scrumOrder=['working','blocked','validation','validating','idle','offline'];
+  const scrumAgents=[...AGENTS].sort((a,b)=>{
+    const ai=scrumOrder.indexOf(a.derived_status||a.status||'idle');
+    const bi=scrumOrder.indexOf(b.derived_status||b.status||'idle');
+    return (ai<0?99:ai)-(bi<0?99:bi);
+  });
+  scrumAgents.slice(0,8).forEach(a=>{
+    const st=a.derived_status||a.status||'idle';
     const item=mk('div','scrum-item');
-    item.appendChild(mkFaceAv(s.id,''));
-    item.appendChild(txt('span','',AGENTS.find(a=>a.id===s.id)?.name+': '+s.t));
+    item.appendChild(mkFaceAv(a.id,''));
+    const lbl=txt('span','',a.name+': '+(a.task||'No active task'));
+    item.appendChild(lbl);
     scrum.appendChild(item);
   });
 }

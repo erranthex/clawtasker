@@ -321,7 +321,9 @@
         <div style="grid-column:1/-1"><label class="mf-lbl">Title *</label><input class="mf-in" id="MF_TITLE_IN" placeholder="Mission title"></div>
         <div style="grid-column:1/-1"><label class="mf-lbl">Objective *</label><input class="mf-in" id="MF_OBJ" placeholder="What does this mission achieve?"></div>
         <div><label class="mf-lbl">Priority</label>
-          <select class="mf-in" id="MF_PRI"><option value="P0">P0 — Critical</option><option value="P1" selected>P1 — High</option><option value="P2">P2 — Normal</option></select></div>
+          <select class="mf-in" id="MF_PRI"><option value="P0">🔴 P0 Critical</option><option value="P1" selected>🟠 P1 High</option><option value="P2">🟡 P2 Normal</option><option value="P3">⚪ P3 Low</option></select></div>
+        <div><label class="mf-lbl">Status</label>
+          <select class="mf-in" id="MF_STATUS"><option value="draft">Draft</option><option value="active" selected>Active</option><option value="blocked">Blocked</option><option value="completed">Completed</option></select></div>
         <div><label class="mf-lbl">Horizon</label>
           <select class="mf-in" id="MF_HOR"><option value="Today" selected>Today</option><option value="This Week">This Week</option><option value="This Sprint">This Sprint</option><option value="This Month">This Month</option></select></div>
         <div><label class="mf-lbl">Owner agent</label>
@@ -329,6 +331,7 @@
         <div><label class="mf-lbl">Project</label>
           <select class="mf-in" id="MF_PROJ"><option value="">— select —</option><option value="ceo-console">CEO Console</option><option value="market-radar">Market Radar</option><option value="atlas-core">Atlas Core</option></select></div>
         <div style="grid-column:1/-1"><label class="mf-lbl">Next actions (one per line)</label><textarea class="mf-in" id="MF_ACT" rows="3" placeholder="What needs to happen next?"></textarea></div>
+        <div style="grid-column:1/-1"><label class="mf-lbl">Success criteria (one per line)</label><textarea class="mf-in" id="MF_SC" rows="2" placeholder="How will we know this mission is done?"></textarea></div>
       </div>
       <div class="mf-actions">
         <button class="mf-save" onclick="submitMissionForm()">Save mission</button>

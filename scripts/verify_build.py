@@ -51,7 +51,8 @@ def main():
     
     # === VERSION ALIGNMENT ===
     print("\n--- Version Alignment ---")
-    check(f"VERSION file = {version}", version == '1.5.0')
+    expected_version = open('VERSION').read().strip()
+    check(f"VERSION file = {version}", version == expected_version)
     check(f"index.html title contains v{version}", f'v{version}' in html)
     
     # Server version

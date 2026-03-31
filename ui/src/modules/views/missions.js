@@ -138,10 +138,12 @@ function openMissionForm(mission){
   document.getElementById('MF_TITLE_IN').value=mission?mission.title:'';
   document.getElementById('MF_OBJ').value=mission?mission.objective:'';
   document.getElementById('MF_PRI').value=mission?mission.priority:'P1';
+  if(document.getElementById('MF_STATUS'))document.getElementById('MF_STATUS').value=mission?mission.status||'active':'active';
   document.getElementById('MF_HOR').value=mission?mission.horizon:'Today';
   document.getElementById('MF_OWN').value=mission?mission.owner:'';
   document.getElementById('MF_PROJ').value=mission?(mission.project_ids||[])[0]||'':'';
   document.getElementById('MF_ACT').value=mission?(mission.next_actions||[]).join('\n'):'';
+  if(document.getElementById('MF_SC'))document.getElementById('MF_SC').value=mission?(mission.success_criteria||[]).join('\n'):'';
   const form=document.getElementById('MISS_FORM');
   form.classList.add('open');form.scrollIntoView({behavior:'smooth',block:'nearest'});
   // Switch to missions view if not there
@@ -155,18 +157,20 @@ function submitMissionForm(){
   const obj=document.getElementById('MF_OBJ').value.trim();
   if(!title||!obj){alert('Title and objective are required.');return;}
   const actions=document.getElementById('MF_ACT').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const sc=(document.getElementById('MF_SC')?.value||'').split('\n').map(s=>s.trim()).filter(Boolean);
   const projId=document.getElementById('MF_PROJ').value;
   const ownerId=document.getElementById('MF_OWN').value;
   const ownerAg=AGENTS.find(a=>a.id===ownerId);
+  const mStatus=document.getElementById('MF_STATUS')?.value||'active';
   const newMission={
     id:editingMissionId||('M-'+Date.now()),
     title,objective:obj,
-    status:'active',priority:document.getElementById('MF_PRI').value,
+    status:mStatus,priority:document.getElementById('MF_PRI').value,
     horizon:document.getElementById('MF_HOR').value,
     owner:ownerId,owner_name:ownerAg?ownerAg.name:ownerId,
     project_ids:projId?[projId]:[],
     task_ids:[],assigned_agents:ownerId?[ownerId]:[],required_specialists:[],
-    next_actions:actions,success_criteria:[],risks:[],dependencies:[],
+    next_actions:actions,success_criteria:sc,risks:[],dependencies:[],
     progress_percent:0,task_count:0,open_task_count:0,blocked_task_count:0,
     staffing:{coverage_percent:100,gaps:[]},health_label:'active',
   };
@@ -175,11 +179,26 @@ function submitMissionForm(){
     if(idx>=0)missionsLocal[idx]={...missionsLocal[idx],...newMission};
   } else {
     missionsLocal.unshift(newMission);
-    // Flash missions nav badge
     const nvMiss=document.getElementById('NV_MISS');
     const badge=mk('span','');badge.style.cssText='width:8px;height:8px;border-radius:50%;background:var(--ac);animation:pu 2s infinite;display:inline-block;margin-left:6px';
     nvMiss.appendChild(badge);setTimeout(()=>badge.remove(),10000);
   }
+  // Persist via API
+  const missionPayload={
+    agent_id:ownerId,title:newMission.title,objective:newMission.objective,
+    status:newMission.status,priority:newMission.priority,horizon:newMission.horizon,
+    project_ids:newMission.project_ids,next_actions:newMission.next_actions,
+    success_criteria:newMission.success_criteria,assigned_agents:newMission.assigned_agents,
+  };
+  if(editingMissionId)missionPayload.mission_id=editingMissionId;
+  apiPost('/api/missions/plan',missionPayload).then(res=>{
+    if(res&&res.mission&&!editingMissionId){
+      // Replace optimistic entry with server ID
+      const idx=missionsLocal.findIndex(m=>m.id===newMission.id);
+      if(idx>=0)missionsLocal[idx]={...missionsLocal[idx],...res.mission};
+      buildMissions();
+    }
+  }).catch(()=>{});
   closeMissionForm();buildMissions();
 }
 

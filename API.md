@@ -20,8 +20,13 @@ Returns server health and version information.
 ```json
 {
   "ok": true,
-  "version": "1.2.0",
+  "time": "2026-03-21T09:30:00+00:00",
+  "version": "1.5.0",
   "booted_at": "2026-03-21T08:00:00+00:00",
+  "role": "visualization-companion",
+  "visualization_only": true,
+  "state_source": "local",
+  "restart_safe": true,
   "agents": 13,
   "tasks": 15,
   "uptime_seconds": 3600
@@ -44,7 +49,7 @@ Returns the full current state: agents, tasks, projects, events, missions, conve
   "missions": [...],
   "conversations": [...],
   "ui_settings": {...},
-  "version": "1.2.0",
+  "version": "1.5.0",
   "timestamp": "2026-03-21T09:30:00+00:00"
 }
 ```
@@ -64,7 +69,7 @@ event: clawtasker
 data: {"id":42,"timestamp":"...","kind":"task_updated","title":"Codex updated T-203","details":"status→validation","meta":{}}
 ```
 
-**Event kinds:** `state_saved`, `agent_registered`, `agent_heartbeat`, `task_updated`, `mission_planned`, `message_posted`, `directive_queued`, `agent_decommissioned`
+**Event kinds:** `state_saved`, `agent_registered`, `agent_heartbeat`, `task_updated`, `mission_planned`, `message_posted`, `directive_queued`, `agent_decommission`
 
 ---
 
@@ -86,6 +91,20 @@ Returns the JSON Schema for `POST /api/agents/register`.
 
 Returns the JSON Schema for `POST /api/missions/plan`.
 
+## GET /api/schema/heartbeat
+
+Returns the JSON Schema for `POST /api/agents/heartbeat`.
+
+## GET /api/schema/message
+
+Returns the JSON Schema for `POST /api/conversations/message`.
+
+---
+
+## GET /api/system/recovery
+
+Returns the last recovery log entry and backup chain status. Useful for diagnosing startup issues.
+
 ---
 
 ## POST /api/agents/register
@@ -102,8 +121,6 @@ Register a new AI agent. Call once on startup.
   "skills": ["backend", "testing", "integration"],
   "manager": "orion",
   "project_id": "ceo-console",
-  "model_tier": "sonnet",
-  "emoji": "💻",
   "write_token": "change-me-local"
 }
 ```
@@ -112,8 +129,11 @@ Register a new AI agent. Call once on startup.
 ```json
 {
   "ok": true,
-  "agent_id": "codex",
-  "registered_at": "2026-03-21T09:00:00+00:00"
+  "agent": {"id": "codex", "name": "Codex", "status": "idle", ...},
+  "org_card": {...},
+  "org_structure": {...},
+  "registration": {"operation": "registered", "registered_at": "2026-03-21T09:00:00+00:00"},
+  "contract": {...}
 }
 ```
 
@@ -142,7 +162,10 @@ Send a periodic heartbeat (every ~60 seconds recommended).
 
 **Response:**
 ```json
-{ "ok": true, "agent_id": "codex", "status": "working" }
+{
+  "ok": true,
+  "agent": {"id": "codex", "status": "working", "last_heartbeat": "2026-03-21T09:01:00+00:00", ...}
+}
 ```
 
 ---
@@ -159,9 +182,6 @@ Update a task's status, progress, notes, and artifacts.
   "status": "validation",
   "progress": 95,
   "note": "Filters working across all views. Handing to Ralph.",
-  "doing_summary": "Running final smoke tests",
-  "done_summary": "Implemented agent and project filters",
-  "next_summary": "Await Ralph's sign-off",
   "blockers": [],
   "artifacts": [
     "company/projects/ceo-console/web/app.js"
@@ -183,9 +203,122 @@ done → validation
 ```json
 {
   "ok": true,
+  "task": {"id": "T-203", "status": "validation", "progress": 95, ...}
+}
+```
+
+---
+
+## POST /api/tasks/create
+
+Create a new task directly. Available to both human operators (GUI) and AI agents.
+
+**Body:**
+```json
+{
+  "title": "Implement OAuth login",
+  "description": "Add Google OAuth support to the login page",
+  "project_id": "atlas-core",
+  "owner": "codex",
+  "specialist": "code",
+  "priority": "P1",
+  "status": "backlog",
+  "story_points": 5,
+  "type": "story",
+  "reporter": "alice",
+  "acceptance_criteria": ["User can log in with Google", "Session persists across page reloads"],
+  "definition_of_done": ["Implementation complete", "Tests passing", "Reviewed"],
+  "write_token": "change-me-local"
+}
+```
+
+All fields except `title` are optional. New fields: `type` (one of `bug`, `story`, `task`, `spike`, `epic`; default `task`), `reporter` (defaults to `author` or `"ceo"`), `acceptance_criteria` (list of strings), `assignees` (additional agent IDs beyond `owner`). The response task object also includes: `links: []`, `activity: []`.
+
+**Response:**
+```json
+{
+  "ok": true,
+  "task": {"id": "T-216", "title": "Implement OAuth login", "status": "backlog", ...}
+}
+```
+
+---
+
+## POST /api/tasks/delete
+
+Permanently delete a task. Removes it from missions and dependency chains.
+
+**Body:**
+```json
+{
+  "task_id": "T-216",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{ "ok": true, "task_id": "T-216" }
+```
+
+---
+
+## POST /api/tasks/link
+
+Create a named, bidirectional link between two tasks. The reverse/symmetric link is automatically added to the target task.
+
+**Supported `link_type` values:** `relates-to`, `duplicates`, `blocks`, `is-blocked-by`, `child-of`, `parent-of`
+
+**Body:**
+```json
+{
+  "source_id": "T-101",
+  "target_id": "T-202",
+  "link_type": "blocks",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "source_id": "T-101",
+  "target_id": "T-202",
+  "link_type": "blocks",
+  "symmetric_type": "is-blocked-by"
+}
+```
+
+**Errors:** `source_id is required`, `target_id is required`, `invalid link_type: <x>`, `cannot link a task to itself`, `unknown source task: <id>`, `unknown target task: <id>`, `link already exists: <source> <type> <target>`
+
+---
+
+## POST /api/tasks/comment
+
+Append a comment to a task. Comments are stored in the task's `comments[]` array.
+
+**Body:**
+```json
+{
   "task_id": "T-203",
-  "status": "validation",
-  "event_id": 17
+  "text": "Verified on staging — all filter combinations work correctly.",
+  "author": "ralph",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "task_id": "T-203",
+  "comment": {
+    "id": "CM-1711234567890-0",
+    "author": "ralph",
+    "text": "Verified on staging — all filter combinations work correctly.",
+    "timestamp": "2026-03-21T10:00:00+00:00"
+  }
 }
 ```
 
@@ -228,10 +361,67 @@ Chief agent proposes a new mission. Creates child tasks automatically.
 ```json
 {
   "ok": true,
-  "mission_id": "M-001",
-  "tasks_created": ["T-216", "T-217"],
-  "event_id": 23
+  "mission": {"id": "M-001", "title": "Launch v1.2.0 release candidate", ...},
+  "mission_control": {...},
+  "operation": "created"
 }
+```
+
+---
+
+## POST /api/missions/delete
+
+Permanently delete a mission. Tasks linked to it are unlinked but not deleted.
+
+**Body:**
+```json
+{
+  "mission_id": "M-301",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{ "ok": true, "mission_id": "M-301" }
+```
+
+---
+
+## POST /api/sprints/delete
+
+Delete a sprint. Tasks assigned to it become unsprinted.
+
+**Body:**
+```json
+{
+  "sprint_id": "SPR-007",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{ "ok": true, "sprint_id": "SPR-007" }
+```
+
+---
+
+## POST /api/projects/delete
+
+Delete a project. Tasks and agents referencing it keep their `project_id` for history. Cannot delete the built-in `ceo-console` project.
+
+**Body:**
+```json
+{
+  "project_id": "atlas-core",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{ "ok": true, "project_id": "atlas-core" }
 ```
 
 ---
@@ -243,7 +433,7 @@ Post a message to a conversation thread.
 **Body:**
 ```json
 {
-  "agent_id": "orion",
+  "sender": "orion",
   "thread_id": "TH-CEO-ORION",
   "text": "CEO priority stack confirmed. Routing filters to Codex, office polish to Pixel.",
   "category": "directive",
@@ -258,8 +448,8 @@ Post a message to a conversation thread.
 ```json
 {
   "ok": true,
-  "message_id": "M-042",
-  "thread_id": "TH-CEO-ORION"
+  "thread": {"id": "TH-CEO-ORION", ...},
+  "message": {"id": "M-042", "sender": "orion", "text": "...", ...}
 }
 ```
 
@@ -272,12 +462,11 @@ CEO posts a directive, optionally creating a backlog task.
 **Body:**
 ```json
 {
-  "target_agent_id": "pixel",
+  "target": "pixel",
   "project_id": "ceo-console",
   "text": "Polish the office canvas: ensure all zones are clearly labelled and furniture is visible at all zoom levels.",
   "create_task": true,
   "specialist": "design",
-  "priority": "P0",
   "write_token": "change-me-local"
 }
 ```
@@ -286,8 +475,13 @@ CEO posts a directive, optionally creating a backlog task.
 ```json
 {
   "ok": true,
-  "directive_id": "D-015",
-  "task_id": "T-218"
+  "directive": {
+    "id": "D-015",
+    "target": "pixel",
+    "text": "...",
+    "status": "queued",
+    "timestamp": "2026-03-21T09:05:00+00:00"
+  }
 }
 ```
 
@@ -295,13 +489,249 @@ CEO posts a directive, optionally creating a backlog task.
 
 ## POST /api/agents/decommission
 
-Remove an agent from the active roster.
+Remove an agent from the active roster. Unassigns their tasks and removes them from missions.
 
 **Body:**
 ```json
 {
   "agent_id": "echo",
   "reason": "Project market-radar paused; agent standing down.",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "message": "Agent Echo (echo) marked offline",
+  "agent_id": "echo",
+  "reason": "Project market-radar paused; agent standing down.",
+  "tasks_unassigned": ["T-203", "T-204"]
+}
+```
+
+**Constraints:** Cannot decommission the CEO agent.
+
+---
+
+## POST /api/agents/retire
+
+Gracefully retire an agent, optionally handing off all tasks to a successor.
+
+**Body:**
+```json
+{
+  "agent_id": "echo",
+  "reason": "Project market-radar complete; agent standing down.",
+  "successor_id": "nova",
+  "write_token": "change-me-local"
+}
+```
+
+`successor_id` is optional. If omitted, tasks are unassigned rather than transferred.
+
+**Response:**
+```json
+{
+  "ok": true,
+  "message": "Agent Echo (echo) retired",
+  "agent_id": "echo",
+  "reason": "Project market-radar complete; agent standing down.",
+  "successor_id": "nova",
+  "tasks_transferred": ["T-203", "T-204"]
+}
+```
+
+---
+
+## POST /api/agents/replace
+
+Transfer all task and mission assignments from one agent to another, then retire the old agent.
+
+**Body:**
+```json
+{
+  "old_agent_id": "echo",
+  "new_agent_id": "nova",
+  "reason": "Nova is taking over the market-radar workstream.",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "message": "Agent Echo (echo) replaced by Nova (nova)",
+  "old_agent_id": "echo",
+  "new_agent_id": "nova",
+  "reason": "Nova is taking over the market-radar workstream.",
+  "tasks_transferred": ["T-203", "T-204"]
+}
+```
+
+---
+
+## POST /api/agents/merge
+
+Merge a source agent into a target agent: transfers all tasks and missions, combines skills, then retires the source.
+
+**Body:**
+```json
+{
+  "source_agent_id": "echo-v1",
+  "target_agent_id": "echo",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "message": "Agent Echo-v1 (echo-v1) merged into Echo (echo)",
+  "source_agent_id": "echo-v1",
+  "target_agent_id": "echo",
+  "tasks_transferred": ["T-203"]
+}
+```
+
+**Constraints:** Source and target must be different agents. Cannot merge the CEO.
+
+---
+
+## POST /api/agents/update
+
+Update any mutable field on an existing agent without a full re-register.
+
+**Body:**
+```json
+{
+  "agent_id": "orion",
+  "name": "Orion",
+  "role": "Chief of Staff",
+  "emoji": "🚀",
+  "skills": ["planning", "triage", "routing"],
+  "specialists": ["planning"],
+  "note": "Running the morning sweep.",
+  "write_token": "change-me-local"
+}
+```
+
+All fields except `agent_id` and `write_token` are optional. Only fields present in the body are updated.
+
+**Mutable fields:** `name`, `role`, `manager`, `emoji`, `profile_hue`, `department`, `org_level`, `team_id`, `team_name`, `coordination_scope`, `manager_title`, `avatar_ref`, `project_id`, `note`, `done_summary`, `doing_summary`, `next_summary`, `status`, `skills`, `specialists`, `allowed_tools`, `blockers`, `collaborating_with`
+
+**Response:**
+```json
+{
+  "ok": true,
+  "agent": { "id": "orion", "name": "Orion", "role": "Chief of Staff", ... }
+}
+```
+
+---
+
+## POST /api/agents/delete
+
+Permanently remove an agent from the roster. All tasks and missions previously owned by the agent are unassigned (not deleted).
+
+**Body:**
+```json
+{
+  "agent_id": "iris",
+  "write_token": "change-me-local"
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "deleted": "iris"
+}
+```
+
+**Constraints:** Cannot delete the chief agent.
+
+---
+
+## POST /api/org/configure
+
+Update org-level settings: chief agent, CEO display name/role, company name.
+
+**Body:**
+```json
+{
+  "chief_agent_id": "orion",
+  "ceo_name": "Alex",
+  "ceo_role": "Chief Executive Officer",
+  "company_name": "Acme Corp",
+  "write_token": "change-me-local"
+}
+```
+
+All fields are optional. Only provided fields are updated.
+
+---
+
+## POST /api/projects/configure
+
+Create or update a project.
+
+**Body:**
+```json
+{
+  "project_id": "atlas-core",
+  "name": "Atlas Core",
+  "status": "active",
+  "write_token": "change-me-local"
+}
+```
+
+---
+
+## POST /api/sprints/create
+
+Create a new sprint.
+
+**Body:**
+```json
+{
+  "name": "Sprint 7",
+  "project_id": "ceo-console",
+  "start_date": "2026-03-24",
+  "end_date": "2026-04-06",
+  "write_token": "change-me-local"
+}
+```
+
+---
+
+## POST /api/sprints/update
+
+Update an existing sprint (status, dates, name).
+
+**Body:**
+```json
+{
+  "sprint_id": "SP-007",
+  "status": "active",
+  "write_token": "change-me-local"
+}
+```
+
+---
+
+## POST /api/notifications/dismiss
+
+Dismiss one or more notifications.
+
+**Body:**
+```json
+{
+  "notification_ids": ["N-001", "N-002"],
   "write_token": "change-me-local"
 }
 ```
@@ -329,13 +759,87 @@ Publish an agent run result — updates the run log and broadcasts an event.
 
 ---
 
+## POST /api/openclaw/roster_sync
+
+Sync an external roster of agents into ClawTasker in bulk. Registers or updates multiple agents in one call.
+
+**Body:**
+```json
+{
+  "agents": [
+    {"agent_id": "codex", "name": "Codex", "role": "Engineering Manager", "manager": "orion"},
+    {"agent_id": "pixel", "name": "Pixel", "role": "Design Lead", "manager": "orion"}
+  ],
+  "write_token": "change-me-local"
+}
+```
+
+---
+
 ## POST /api/demo/reset
 
-Reset all state to demo defaults. **Destructive.**
+Reset all state to demo defaults (13 agents, 15 tasks, 3 projects). **Destructive.**
 
 **Body:**
 ```json
 { "write_token": "change-me-local" }
+```
+
+---
+
+## POST /api/blank/reset
+
+Reset to a blank state with no agents, tasks, missions, or conversations. Retains structural scaffolding (skill catalog, org templates, office layout). Use this to start a fresh org without demo noise. **Destructive.**
+
+**Body:**
+```json
+{ "write_token": "change-me-local" }
+```
+
+**Response:**
+```json
+{ "ok": true, "reset": true, "mode": "blank" }
+```
+
+---
+
+## POST /api/org/bootstrap
+
+Bootstrap a blank state with your own company info, projects, and agents in one call. Internally calls `POST /api/blank/reset` then registers the provided manifest. **Destructive.**
+
+**Body:**
+```json
+{
+  "company_name": "Acme Corp",
+  "ceo_name": "Alex",
+  "projects": [
+    {"project_id": "atlas-core", "name": "Atlas Core", "status": "active"}
+  ],
+  "agents": [
+    {
+      "agent_id": "orion",
+      "name": "Orion",
+      "role": "Chief of Staff",
+      "home_specialist": "planning",
+      "skills": ["coordination", "planning"],
+      "manager": "ceo",
+      "project_id": "atlas-core"
+    }
+  ],
+  "write_token": "change-me-local"
+}
+```
+
+All fields except `write_token` are optional. Agents that fail validation are skipped and listed in `warnings`.
+
+**Response:**
+```json
+{
+  "ok": true,
+  "agents_registered": ["orion"],
+  "projects": ["ceo-console", "atlas-core"],
+  "warnings": []
+}
 ```
 
 ---
@@ -345,18 +849,14 @@ Reset all state to demo defaults. **Destructive.**
 All errors follow this shape:
 
 ```json
-{
-  "ok": false,
-  "error": "task_not_found",
-  "message": "Task T-999 does not exist."
-}
+{ "error": "agent_id is required" }
 ```
 
 | HTTP Status | Meaning |
 |-------------|---------|
 | 400 | Bad request — invalid or missing fields |
 | 401 | Unauthorised — missing or invalid write token |
-| 404 | Not found — unknown task, agent, or thread ID |
+| 404 | Not found — unknown route |
 | 405 | Method not allowed |
 | 413 | Request body too large (max 160 KB) |
 | 429 | Rate limit exceeded — back off and retry |
@@ -366,7 +866,7 @@ All errors follow this shape:
 
 ## Rate Limiting
 
-Write endpoints are rate-limited per IP. Default: 30 requests/minute.  
+Write endpoints are rate-limited per IP. Default: 30 requests/minute.
 Configure with: `CLAWTASKER_WRITE_LIMIT=60 python3 server.py`
 
 On limit hit, the server responds with HTTP 429 and a `Retry-After` header.
@@ -381,7 +881,7 @@ const es = new EventSource('http://127.0.0.1:3000/api/events/stream');
 es.addEventListener('clawtasker', e => {
   const event = JSON.parse(e.data);
   console.log(`[${event.kind}] ${event.title}`);
-  
+
   if (event.kind === 'task_updated') {
     // Refresh task board in your UI
     refreshTaskBoard();
@@ -418,95 +918,7 @@ Subscribe to live events:
 5. GET /api/events/stream — EventSource for real-time state updates.
 
 Full contract: GET /api/openclaw/contract
-All schemas: GET /api/schema/task  |  /api/schema/agent-register  |  /api/schema/mission-plan
-```
-
----
-
-## POST /api/calendar/events
-
-Create a calendar event. Can be called by AI agents to schedule meetings, reminders, or tasks.
-
-**Request:**
-```json
-{
-  "day": "Mon",
-  "time": "09:00",
-  "title": "Sprint planning",
-  "agent": "Orion",
-  "category": "hl-plan",
-  "recurring": false
-}
-```
-
-**Fields:**
-- `day` (required): Day of week — `Mon`, `Tue`, `Wed`, `Thu`, `Fri`, `Sat`, `Sun`
-- `time` (required): 24-hour time — `"09:00"`, `"14:30"`, etc.
-- `title` (required): Event title
-- `agent` (optional): Agent name or `"CEO"`. Defaults to `"CEO"`.
-- `category` (optional): Color category — `hl-plan`, `hl-code`, `hl-res`, `hl-ops`, `hl-qa`, `hl-sec`, `hl-des`, `hl-doc`. Defaults to `hl-plan`.
-- `recurring` (optional): `true` for weekly recurring. Defaults to `false`.
-
-**Response:**
-```json
-{ "ok": true, "event_id": "EVT-001" }
-```
-
----
-
-## POST /api/requirements
-
-Create a product requirement. AI agents can define requirements for any project type.
-
-**Request:**
-```json
-{
-  "title": "User authentication",
-  "description": "The system shall support email/password authentication.",
-  "priority": "P0",
-  "status": "approved",
-  "linked_tasks": ["T-101"]
-}
-```
-
----
-
-## POST /api/test-cases
-
-Create a test case linked to a requirement.
-
-**Request:**
-```json
-{
-  "title": "Login with valid credentials",
-  "linked_req": "REQ-001",
-  "steps": ["Open login page", "Enter valid email", "Enter valid password", "Click submit"],
-  "expected": "User is redirected to dashboard"
-}
-```
-
----
-
-## POST /api/pipeline/tasks
-
-Create a task linked to an EPIC/project. Equivalent to the GUI "+ New ticket" button in Pipeline view.
-
-**Request:**
-```json
-{
-  "title": "Implement OAuth flow",
-  "description": "Add Google OAuth support to the login page",
-  "project_id": "atlas-core",
-  "owner_id": "codex",
-  "priority": "P1",
-  "story_points": 5,
-  "status": "backlog"
-}
-```
-
-**Response:**
-```json
-{ "ok": true, "task_id": "T-301" }
+All schemas: GET /api/schema/task  |  /api/schema/agent-register  |  /api/schema/mission-plan  |  /api/schema/heartbeat  |  /api/schema/message
 ```
 
 ---
@@ -525,12 +937,12 @@ Create a task linked to an EPIC/project. Equivalent to the GUI "+ New ticket" bu
 └──────────────────┘
 
 Both users share the same API:
-- POST /api/tasks/create        — create tasks
-- POST /api/calendar/events     — schedule events
-- POST /api/requirements        — define requirements
-- POST /api/test-cases          — create test cases
-- POST /api/heartbeat           — agent heartbeats
-- POST /api/agents/register     — agent self-registration
-- GET  /api/events              — SSE real-time stream
-- GET  /api/snapshot            — full state snapshot
+- POST /api/agents/register      — agent self-registration
+- POST /api/agents/heartbeat     — agent heartbeats
+- POST /api/tasks/update         — update task status and progress
+- POST /api/missions/plan        — propose a mission
+- POST /api/conversations/message — post to a thread
+- POST /api/ceo/directive        — queue a CEO directive
+- GET  /api/events/stream        — SSE real-time stream
+- GET  /api/snapshot             — full state snapshot
 ```

@@ -6,13 +6,13 @@ function buildOrg(){
   cl.appendChild(mkOrgCard({id:'ceo',name:'You',role:'CEO / Human operator',hue:'planning',skills:['priorities','approvals','exceptions']},true));
   el.appendChild(cl);
   // Chief row
-  const chief=AGENTS.find(a=>a.id==='orion')||AGENTS[0];
+  const chief=AGENTS.find(a=>a.org_level==='chief')||AGENTS.find(a=>a.id==='orion')||AGENTS[0];
   if(chief&&chief.status!=='offline'){
     const ch=mk('div','org-chief');ch.appendChild(mkOrgCard(chief,true));el.appendChild(ch);
   }
   const ln=mk('div','org-hline');el.appendChild(ln);
   // Manager lanes (active only)
-  const mgrs=AGENTS.filter(a=>['codex','charlie','quill','violet'].includes(a.id)&&a.status!=='offline');
+  const mgrs=AGENTS.filter(a=>a.org_level==='manager'&&a.status!=='offline');
   if(mgrs.length){
     const gr=mk('div','org-grid');
     mgrs.forEach(mgr=>{
@@ -33,7 +33,7 @@ function buildOrg(){
       const card=mk('div','');
       card.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 12px;'+
         'background:var(--bg3);border:1px solid var(--bd);border-radius:var(--rmd);opacity:.5;position:relative';
-      card.appendChild(mkPortrait(ag.id,'sm'));
+      card.appendChild(mkFaceAv(ag.id,'sm'));
       const info=mk('div','');
       info.innerHTML=`<div style="font-size:.78rem;font-weight:600;color:var(--mut)">${ag.name}</div>`+
         `<div style="font-size:.65rem;color:var(--mut)">${ag.role}</div>`+
@@ -47,10 +47,12 @@ function buildOrg(){
       del.onmouseenter=()=>del.style.background='var(--dns)';
       del.onmouseleave=()=>del.style.background='transparent';
       del.onclick=()=>{
-        if(!confirm('Permanently remove '+ag.name+' from the org chart?\n\nThis only removes them from the local display.'))return;
-        const idx=AGENTS.findIndex(a=>a.id===ag.id);
-        if(idx>=0)AGENTS.splice(idx,1);
-        buildOrg();buildRoster();
+        if(!confirm('Permanently remove '+ag.name+' from the roster? This cannot be undone.'))return;
+        apiPost('/api/agents/delete',{agent_id:ag.id}).then(()=>{
+          const idx=AGENTS.findIndex(a=>a.id===ag.id);
+          if(idx>=0)AGENTS.splice(idx,1);
+          buildOrg();buildRoster();
+        }).catch(err=>alert('Delete failed: '+(err.message||err)));
       };
       card.appendChild(del);
       row.appendChild(card);
@@ -62,7 +64,7 @@ function buildOrg(){
 function mkOrgCard(agent,big,rpts){
   const c=mk('div','org-card'+(big?' big':''));
   c.style.borderTopColor=HUE[agent.hue]||'#14b8a6';
-  c.appendChild(mkPortrait(agent.id,big?'lg':''));
+  c.appendChild(mkFaceAv(agent.id,big?'lg':''));
   const nameEl=txt('div','org-name',agent.name);
   nameEl.style.cursor='pointer';nameEl.title='Click to edit';
   nameEl.onclick=()=>openOrgEdit(agent,'name',nameEl);
@@ -72,7 +74,7 @@ function mkOrgCard(agent,big,rpts){
   roleEl.onclick=()=>openOrgEdit(agent,'role',roleEl);
   c.appendChild(roleEl);
   if(agent.skills){const sk=mk('div','org-sk');agent.skills.slice(0,3).forEach(s=>{const ch=mk('span','chip');ch.textContent=s;sk.appendChild(ch);});c.appendChild(sk);}
-  if(rpts&&rpts.length){const rw=mk('div','org-reps');rpts.forEach(r=>{rw.appendChild(mkPortrait(r.id,'sm'));});c.appendChild(rw);}
+  if(rpts&&rpts.length){const rw=mk('div','org-reps');rpts.forEach(r=>{rw.appendChild(mkFaceAv(r.id,'sm'));});c.appendChild(rw);}
   if(agent.id&&agent.id!=='ceo'){
     const ctrl=mk('div','');ctrl.style.cssText='display:flex;gap:4px;margin-top:6px;justify-content:center';
     const editBtn=txt('button','mc-edit','Edit');editBtn.onclick=e=>{e.stopPropagation();openFullOrgEdit(agent);};

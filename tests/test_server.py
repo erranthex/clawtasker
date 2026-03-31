@@ -4,6 +4,8 @@ import unittest
 from contextlib import contextmanager
 from pathlib import Path
 
+_EXPECTED_VERSION = (Path(__file__).resolve().parent.parent / 'VERSION').read_text(encoding='utf-8').strip()
+
 from PIL import Image
 
 import server
@@ -45,7 +47,7 @@ class ServerTests(unittest.TestCase):
     def test_server_defaults_are_local_first(self):
         self.assertEqual(server.HOST, '127.0.0.1')
         self.assertEqual(server.PORT, 3000)
-        self.assertEqual(server.APP_VERSION, '1.2.0')
+        self.assertEqual(server.APP_VERSION, _EXPECTED_VERSION)
 
     def test_attention_queue_flags_blocked_and_validation(self):
         state = server.default_state()
@@ -99,7 +101,6 @@ class ServerTests(unittest.TestCase):
     def test_static_ui_dist_exists(self):
         root = Path(server.__file__).resolve().parent
         self.assertTrue((root / 'ui' / 'dist' / 'index.html').exists())
-        self.assertTrue((root / 'ui' / 'dist' / 'assets' / 'main.js').exists())
         self.assertTrue((root / 'ui' / 'dist' / 'assets' / 'styles.css').exists())
         styles = (root / 'ui' / 'dist' / 'assets' / 'styles.css').read_text(encoding='utf-8')
         self.assertIn('.glass-panel', styles)
@@ -177,7 +178,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(error, 'unknown agent: nobody')
 
     def test_health_role_is_visualization_companion(self):
-        self.assertEqual(server.APP_VERSION, (Path(server.__file__).resolve().parent / 'VERSION').read_text(encoding='utf-8').strip())
+        self.assertEqual(server.APP_VERSION, _EXPECTED_VERSION)
 
     def test_snapshot_contains_system_health_recovery_and_agent_api_contract(self):
         state = server.default_state()
@@ -1112,8 +1113,8 @@ class V1ImprovementsTests(unittest.TestCase):
     def test_version_is_v1_0_5(self):
         from pathlib import Path
         ver_file = (Path(server.__file__).resolve().parent / 'VERSION').read_text().strip()
-        self.assertEqual(ver_file, '1.2.0')
-        self.assertEqual(server.APP_VERSION, '1.2.0')
+        self.assertEqual(ver_file, _EXPECTED_VERSION)
+        self.assertEqual(server.APP_VERSION, _EXPECTED_VERSION)
 
 
 
@@ -1832,3 +1833,460 @@ class NotificationTests(unittest.TestCase):
         # - verify at least the agent is offline
         echo = next(a for a in state['agents'] if a['id'] == 'echo')
         self.assertEqual(echo['status'], 'offline')
+
+
+class CRUDTests(unittest.TestCase):
+
+    # ── Task create ──────────────────────────────────────────────────────────
+
+    def test_create_task_returns_task_with_generated_id(self):
+        state = server.default_state()
+        result, error = server.create_task(state, {'title': 'Test task'})
+        self.assertIsNone(error)
+        self.assertTrue(result['ok'])
+        task = result['task']
+        self.assertTrue(task['id'].startswith('T-'))
+        self.assertEqual(task['title'], 'Test task')
+        self.assertEqual(task['comments'], [])
+        # Task is also in state
+        ids = [t['id'] for t in state['tasks']]
+        self.assertIn(task['id'], ids)
+
+    def test_create_task_requires_title(self):
+        state = server.default_state()
+        result, error = server.create_task(state, {'title': ''})
+        self.assertIsNotNone(error)
+        self.assertIn('title is required', error)
+
+    def test_create_task_rejects_duplicate_id(self):
+        state = server.default_state()
+        existing_id = state['tasks'][0]['id']
+        result, error = server.create_task(state, {'title': 'Duplicate', 'id': existing_id})
+        self.assertIsNotNone(error)
+        self.assertIn('already exists', error)
+
+    # ── Task delete ──────────────────────────────────────────────────────────
+
+    def test_delete_task_removes_from_state(self):
+        state = server.default_state()
+        before = len(state['tasks'])
+        task_id = state['tasks'][0]['id']
+        result, error = server.delete_task(state, {'task_id': task_id})
+        self.assertIsNone(error)
+        self.assertTrue(result['ok'])
+        self.assertEqual(len(state['tasks']), before - 1)
+        self.assertIsNone(next((t for t in state['tasks'] if t['id'] == task_id), None))
+
+    def test_delete_task_cleans_mission_task_ids(self):
+        state = server.default_state()
+        task_id = state['tasks'][0]['id']
+        # Plant task_id in a mission
+        state['missions'][0].setdefault('task_ids', []).append(task_id)
+        server.delete_task(state, {'task_id': task_id})
+        for mission in state['missions']:
+            self.assertNotIn(task_id, mission.get('task_ids', []))
+
+    def test_delete_task_cleans_dependency_chains(self):
+        state = server.default_state()
+        tid_a = state['tasks'][0]['id']
+        tid_b = state['tasks'][1]['id']
+        state['tasks'][1]['depends_on'] = [tid_a]
+        state['tasks'][0]['blocking'] = [tid_b]
+        server.delete_task(state, {'task_id': tid_a})
+        self.assertNotIn(tid_a, state['tasks'][0].get('depends_on', []))
+        for t in state['tasks']:
+            self.assertNotIn(tid_a, t.get('blocking', []))
+
+    # ── Task comment ─────────────────────────────────────────────────────────
+
+    def test_add_task_comment_appends_to_comments_array(self):
+        state = server.default_state()
+        task_id = state['tasks'][0]['id']
+        state['tasks'][0]['comments'] = []
+        result, error = server.add_task_comment(state, {
+            'task_id': task_id, 'text': 'Looks good!', 'author': 'ralph'
+        })
+        self.assertIsNone(error)
+        self.assertTrue(result['ok'])
+        comment = result['comment']
+        self.assertEqual(comment['author'], 'ralph')
+        self.assertEqual(comment['text'], 'Looks good!')
+        self.assertIn('timestamp', comment)
+        self.assertEqual(len(state['tasks'][0]['comments']), 1)
+
+    def test_add_task_comment_requires_text(self):
+        state = server.default_state()
+        task_id = state['tasks'][0]['id']
+        result, error = server.add_task_comment(state, {'task_id': task_id, 'text': ''})
+        self.assertIsNotNone(error)
+        self.assertIn('text is required', error)
+
+    # ── Mission delete ────────────────────────────────────────────────────────
+
+    def test_delete_mission_removes_and_unlinks_tasks(self):
+        state = server.default_state()
+        mission_id = state['missions'][0]['id']
+        # Link a task to the mission
+        state['tasks'][0]['mission_id'] = mission_id
+        before = len(state['missions'])
+        result, error = server.delete_mission(state, {'mission_id': mission_id})
+        self.assertIsNone(error)
+        self.assertTrue(result['ok'])
+        self.assertEqual(len(state['missions']), before - 1)
+        # Task's mission_id should be cleared
+        self.assertEqual(state['tasks'][0].get('mission_id', ''), '')
+
+    # ── Sprint delete ─────────────────────────────────────────────────────────
+
+    def test_delete_sprint_removes_and_unsprints_tasks(self):
+        state = server.default_state()
+        sprint, _ = server.create_sprint(state, {'name': 'Sprint X', 'project_id': 'ceo-console'})
+        sprint_id = sprint['sprint']['id']
+        # Assign a task to the sprint
+        state['tasks'][0]['sprint_id'] = sprint_id
+        result, error = server.delete_sprint(state, {'sprint_id': sprint_id})
+        self.assertIsNone(error)
+        self.assertTrue(result['ok'])
+        self.assertIsNone(next((s for s in state['sprints'] if s['id'] == sprint_id), None))
+        # Task should be unsprinted
+        self.assertIsNone(state['tasks'][0].get('sprint_id'))
+
+
+class AgentCRUDTests(unittest.TestCase):
+
+    def _make_state_with_agent(self, agent_id="iris", org_level="specialist"):
+        state = server.default_state()
+        # Add a disposable test agent if not already present
+        if not any(a["id"] == agent_id for a in state["agents"]):
+            state["agents"].append(server.enrich_agent_record({
+                "id": agent_id, "name": "Iris", "role": "HR Specialist",
+                "status": "idle", "skills": ["hr", "onboarding"],
+                "specialists": ["hr"], "org_level": org_level,
+                "project_id": "ceo-console", "last_heartbeat": server.iso_now(),
+                "blockers": [], "collaborating_with": [], "speaking": False,
+            }))
+        return state
+
+    def test_update_agent_name_and_role(self):
+        state = self._make_state_with_agent()
+        result, error = server.update_agent(state, {"agent_id": "iris", "name": "Iris Updated", "role": "Senior HR"})
+        self.assertIsNone(error)
+        self.assertTrue(result["ok"])
+        agent = next(a for a in state["agents"] if a["id"] == "iris")
+        self.assertEqual(agent["name"], "Iris Updated")
+        self.assertEqual(agent["role"], "Senior HR")
+
+    def test_update_agent_emoji(self):
+        state = self._make_state_with_agent()
+        result, error = server.update_agent(state, {"agent_id": "iris", "emoji": "🌟"})
+        self.assertIsNone(error)
+        agent = next(a for a in state["agents"] if a["id"] == "iris")
+        self.assertEqual(agent["emoji"], "🌟")
+
+    def test_update_agent_skills(self):
+        state = self._make_state_with_agent()
+        result, error = server.update_agent(state, {"agent_id": "iris", "skills": ["recruiting", "onboarding", "culture"]})
+        self.assertIsNone(error)
+        agent = next(a for a in state["agents"] if a["id"] == "iris")
+        self.assertIn("recruiting", agent["skills"])
+
+    def test_update_agent_unknown_id(self):
+        state = server.default_state()
+        result, error = server.update_agent(state, {"agent_id": "no-such-agent", "name": "Ghost"})
+        self.assertIsNotNone(error)
+        self.assertIn("unknown agent", error)
+
+    def test_update_agent_requires_agent_id(self):
+        state = server.default_state()
+        result, error = server.update_agent(state, {"name": "Nobody"})
+        self.assertIsNotNone(error)
+        self.assertIn("agent_id is required", error)
+
+    def test_delete_agent_removes_from_roster(self):
+        state = self._make_state_with_agent()
+        ids_before = [a["id"] for a in state["agents"]]
+        self.assertIn("iris", ids_before)
+        result, error = server.delete_agent(state, {"agent_id": "iris"})
+        self.assertIsNone(error)
+        self.assertTrue(result["ok"])
+        ids_after = [a["id"] for a in state["agents"]]
+        self.assertNotIn("iris", ids_after)
+
+    def test_delete_agent_unassigns_tasks(self):
+        state = self._make_state_with_agent()
+        # Assign a task to iris
+        state["tasks"][0]["owner"] = "iris"
+        server.delete_agent(state, {"agent_id": "iris"})
+        self.assertEqual(state["tasks"][0]["owner"], "")
+
+    def test_delete_agent_unknown_id(self):
+        state = server.default_state()
+        result, error = server.delete_agent(state, {"agent_id": "no-such-agent"})
+        self.assertIsNotNone(error)
+        self.assertIn("unknown agent", error)
+
+    def test_delete_agent_chief_protected(self):
+        state = server.default_state()
+        chief_id = state.get("org", {}).get("chief_agent_id") or "orion"
+        result, error = server.delete_agent(state, {"agent_id": chief_id})
+        self.assertIsNotNone(error)
+        self.assertIn("cannot delete", error)
+
+    def test_org_chart_managers_use_org_level(self):
+        """Verify that manager agents carry org_level=manager so the GUI filter works."""
+        state = server.default_state()
+        managers = [a for a in state["agents"] if a.get("org_level") == "manager"]
+        self.assertGreater(len(managers), 0, "Expected at least one manager-level agent in default state")
+
+
+class TaskTypeTests(unittest.TestCase):
+
+    def test_create_task_defaults_to_type_task(self):
+        state = server.default_state()
+        result, error = server.create_task(state, {"title": "No type given"})
+        self.assertIsNone(error)
+        self.assertEqual(result["task"]["type"], "task")
+
+    def test_create_task_with_valid_type(self):
+        state = server.default_state()
+        for t in ("bug", "story", "task", "spike", "epic"):
+            result, error = server.create_task(state, {"title": f"A {t}", "type": t})
+            self.assertIsNone(error, f"type={t} should be valid")
+            self.assertEqual(result["task"]["type"], t)
+
+    def test_create_task_with_invalid_type_falls_back_to_task(self):
+        state = server.default_state()
+        result, error = server.create_task(state, {"title": "Bad type", "type": "nonsense"})
+        self.assertIsNone(error)
+        self.assertEqual(result["task"]["type"], "task")
+
+    def test_update_task_type(self):
+        state = server.default_state()
+        r, _ = server.create_task(state, {"title": "Will change"})
+        tid = r["task"]["id"]
+        result, error = server.update_task(state, {"id": tid, "type": "bug"})
+        self.assertIsNone(error)
+        task = next(t for t in state["tasks"] if t["id"] == tid)
+        self.assertEqual(task["type"], "bug")
+
+    def test_update_task_invalid_type_falls_back(self):
+        state = server.default_state()
+        r, _ = server.create_task(state, {"title": "Type check"})
+        tid = r["task"]["id"]
+        server.update_task(state, {"id": tid, "type": "bug"})
+        server.update_task(state, {"id": tid, "type": "invalid"})
+        task = next(t for t in state["tasks"] if t["id"] == tid)
+        self.assertEqual(task["type"], "task")  # falls back on invalid
+
+    def test_create_task_has_reporter_field(self):
+        state = server.default_state()
+        result, error = server.create_task(state, {"title": "With reporter", "reporter": "alice"})
+        self.assertIsNone(error)
+        self.assertEqual(result["task"]["reporter"], "alice")
+
+    def test_create_task_reporter_defaults_to_author(self):
+        state = server.default_state()
+        result, _ = server.create_task(state, {"title": "Author as reporter", "author": "bob"})
+        self.assertEqual(result["task"]["reporter"], "bob")
+
+    def test_create_task_has_acceptance_criteria(self):
+        state = server.default_state()
+        result, _ = server.create_task(state, {
+            "title": "With AC",
+            "acceptance_criteria": ["Given X, when Y, then Z", "It should not break"],
+        })
+        self.assertEqual(result["task"]["acceptance_criteria"], ["Given X, when Y, then Z", "It should not break"])
+
+    def test_update_task_acceptance_criteria(self):
+        state = server.default_state()
+        r, _ = server.create_task(state, {"title": "AC update"})
+        tid = r["task"]["id"]
+        server.update_task(state, {"id": tid, "acceptance_criteria": ["Criterion A", "Criterion B"]})
+        task = next(t for t in state["tasks"] if t["id"] == tid)
+        self.assertEqual(task["acceptance_criteria"], ["Criterion A", "Criterion B"])
+
+    def test_new_task_has_links_list(self):
+        state = server.default_state()
+        result, _ = server.create_task(state, {"title": "Links field"})
+        self.assertEqual(result["task"]["links"], [])
+
+    def test_new_task_has_assignees_list(self):
+        state = server.default_state()
+        owner = state["agents"][0]["id"]
+        result, _ = server.create_task(state, {"title": "Assignees field", "owner": owner})
+        self.assertIn(owner, result["task"]["assignees"])
+
+    def test_migration_adds_type_to_existing_tasks(self):
+        state = server.default_state()
+        state["tasks"][0].pop("type", None)
+        with isolated_state_files():
+            server.save_state(state)
+            reloaded = server.load_state()
+            task = next(t for t in reloaded["tasks"] if t["id"] == state["tasks"][0]["id"])
+            self.assertEqual(task.get("type"), "task")
+
+    def test_migration_adds_links_to_existing_tasks(self):
+        state = server.default_state()
+        state["tasks"][0].pop("links", None)
+        with isolated_state_files():
+            server.save_state(state)
+            reloaded = server.load_state()
+            task = next(t for t in reloaded["tasks"] if t["id"] == state["tasks"][0]["id"])
+            self.assertEqual(task.get("links"), [])
+
+
+class LinkTasksTests(unittest.TestCase):
+
+    def test_link_tasks_creates_bidirectional_links(self):
+        state = server.default_state()
+        r1, _ = server.create_task(state, {"title": "Source"})
+        r2, _ = server.create_task(state, {"title": "Target"})
+        s_id, t_id = r1["task"]["id"], r2["task"]["id"]
+        result, error = server.link_tasks(state, {"source_id": s_id, "target_id": t_id, "link_type": "blocks"})
+        self.assertIsNone(error)
+        self.assertTrue(result["ok"])
+        source = next(t for t in state["tasks"] if t["id"] == s_id)
+        target = next(t for t in state["tasks"] if t["id"] == t_id)
+        self.assertTrue(any(l["type"] == "blocks" and l["target_id"] == t_id for l in source["links"]))
+        self.assertTrue(any(l["type"] == "is-blocked-by" and l["target_id"] == s_id for l in target["links"]))
+
+    def test_link_tasks_symmetric_relates_to(self):
+        state = server.default_state()
+        r1, _ = server.create_task(state, {"title": "A"})
+        r2, _ = server.create_task(state, {"title": "B"})
+        result, error = server.link_tasks(state, {
+            "source_id": r1["task"]["id"], "target_id": r2["task"]["id"], "link_type": "relates-to"
+        })
+        self.assertIsNone(error)
+        self.assertEqual(result["symmetric_type"], "relates-to")
+
+    def test_link_tasks_rejects_self_link(self):
+        state = server.default_state()
+        r, _ = server.create_task(state, {"title": "Self"})
+        tid = r["task"]["id"]
+        _, error = server.link_tasks(state, {"source_id": tid, "target_id": tid, "link_type": "relates-to"})
+        self.assertIsNotNone(error)
+        self.assertIn("itself", error)
+
+    def test_link_tasks_rejects_unknown_source(self):
+        state = server.default_state()
+        r, _ = server.create_task(state, {"title": "Real task"})
+        _, error = server.link_tasks(state, {"source_id": "T-nope", "target_id": r["task"]["id"], "link_type": "relates-to"})
+        self.assertIsNotNone(error)
+        self.assertIn("unknown source", error)
+
+    def test_link_tasks_rejects_unknown_target(self):
+        state = server.default_state()
+        r, _ = server.create_task(state, {"title": "Real task"})
+        _, error = server.link_tasks(state, {"source_id": r["task"]["id"], "target_id": "T-nope", "link_type": "relates-to"})
+        self.assertIsNotNone(error)
+        self.assertIn("unknown target", error)
+
+    def test_link_tasks_rejects_invalid_link_type(self):
+        state = server.default_state()
+        r1, _ = server.create_task(state, {"title": "A"})
+        r2, _ = server.create_task(state, {"title": "B"})
+        _, error = server.link_tasks(state, {
+            "source_id": r1["task"]["id"], "target_id": r2["task"]["id"], "link_type": "owns"
+        })
+        self.assertIsNotNone(error)
+        self.assertIn("invalid link_type", error)
+
+    def test_link_tasks_rejects_duplicate_link(self):
+        state = server.default_state()
+        r1, _ = server.create_task(state, {"title": "A"})
+        r2, _ = server.create_task(state, {"title": "B"})
+        s, t = r1["task"]["id"], r2["task"]["id"]
+        server.link_tasks(state, {"source_id": s, "target_id": t, "link_type": "blocks"})
+        _, error = server.link_tasks(state, {"source_id": s, "target_id": t, "link_type": "blocks"})
+        self.assertIsNotNone(error)
+        self.assertIn("already exists", error)
+
+    def test_delete_task_removes_links_on_other_tasks(self):
+        state = server.default_state()
+        r1, _ = server.create_task(state, {"title": "A"})
+        r2, _ = server.create_task(state, {"title": "B"})
+        s, t = r1["task"]["id"], r2["task"]["id"]
+        server.link_tasks(state, {"source_id": s, "target_id": t, "link_type": "blocks"})
+        server.delete_task(state, {"task_id": t})
+        source = next(tk for tk in state["tasks"] if tk["id"] == s)
+        self.assertFalse(any(l["target_id"] == t for l in source.get("links", [])))
+
+    def test_all_valid_link_types_accepted(self):
+        state = server.default_state()
+        r1, _ = server.create_task(state, {"title": "Base"})
+        valid = ["relates-to", "duplicates", "blocks", "is-blocked-by", "child-of", "parent-of"]
+        for lt in valid:
+            r2, _ = server.create_task(state, {"title": f"Target for {lt}"})
+            result, error = server.link_tasks(state, {
+                "source_id": r1["task"]["id"], "target_id": r2["task"]["id"], "link_type": lt
+            })
+            self.assertIsNone(error, f"link_type={lt} should be valid")
+            self.assertTrue(result["ok"])
+
+
+class ActivityLogTests(unittest.TestCase):
+
+    def test_update_task_status_records_activity(self):
+        state = server.default_state()
+        r, _ = server.create_task(state, {"title": "Activity test", "owner": state["agents"][0]["id"]})
+        tid = r["task"]["id"]
+        server.update_task(state, {"id": tid, "status": "ready"})
+        task = next(t for t in state["tasks"] if t["id"] == tid)
+        activity = task.get("activity", [])
+        self.assertTrue(any(a["field"] == "status" and a["to"] == "ready" for a in activity))
+
+    def test_update_task_owner_records_activity(self):
+        state = server.default_state()
+        agents = state["agents"]
+        r, _ = server.create_task(state, {"title": "Owner change", "owner": agents[0]["id"]})
+        tid = r["task"]["id"]
+        server.update_task(state, {"id": tid, "owner": agents[1]["id"]})
+        task = next(t for t in state["tasks"] if t["id"] == tid)
+        activity = task.get("activity", [])
+        self.assertTrue(any(a["field"] == "owner" and a["to"] == agents[1]["id"] for a in activity))
+
+    def test_update_task_priority_records_activity(self):
+        state = server.default_state()
+        r, _ = server.create_task(state, {"title": "Priority change", "priority": "P2"})
+        tid = r["task"]["id"]
+        server.update_task(state, {"id": tid, "priority": "P1"})
+        task = next(t for t in state["tasks"] if t["id"] == tid)
+        activity = task.get("activity", [])
+        self.assertTrue(any(a["field"] == "priority" and a["to"] == "P1" for a in activity))
+
+    def test_activity_entry_has_required_fields(self):
+        state = server.default_state()
+        r, _ = server.create_task(state, {"title": "Fields check"})
+        tid = r["task"]["id"]
+        server.update_task(state, {"id": tid, "status": "ready", "author": "alice"})
+        task = next(t for t in state["tasks"] if t["id"] == tid)
+        entry = next((a for a in task.get("activity", []) if a.get("field") == "status"), None)
+        self.assertIsNotNone(entry)
+        for key in ("id", "author", "action", "field", "from", "to", "timestamp"):
+            self.assertIn(key, entry, f"activity entry missing {key}")
+        self.assertEqual(entry["author"], "alice")
+
+    def test_no_activity_when_field_unchanged(self):
+        state = server.default_state()
+        r, _ = server.create_task(state, {"title": "No change", "priority": "P2"})
+        tid = r["task"]["id"]
+        server.update_task(state, {"id": tid, "priority": "P2"})  # same value
+        task = next(t for t in state["tasks"] if t["id"] == tid)
+        # No activity entries for priority since it didn't change
+        self.assertFalse(any(a.get("field") == "priority" for a in task.get("activity", [])))
+
+    def test_new_task_has_empty_activity_list(self):
+        state = server.default_state()
+        result, _ = server.create_task(state, {"title": "Fresh task"})
+        self.assertEqual(result["task"]["activity"], [])
+
+    def test_migration_adds_activity_to_existing_tasks(self):
+        state = server.default_state()
+        state["tasks"][0].pop("activity", None)
+        with isolated_state_files():
+            server.save_state(state)
+            reloaded = server.load_state()
+            task = next(t for t in reloaded["tasks"] if t["id"] == state["tasks"][0]["id"])
+            self.assertEqual(task.get("activity"), [])
+

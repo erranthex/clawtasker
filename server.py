@@ -37,7 +37,7 @@ API_TOKEN = os.getenv("CLAWTASKER_API_TOKEN", "change-me-local")
 WRITE_LIMIT_PER_MINUTE = int(os.getenv("CLAWTASKER_WRITE_LIMIT", "30"))
 HEARTBEAT_STALE_SECONDS = int(os.getenv("CLAWTASKER_STALE_SECONDS", "180"))
 MAX_BODY_BYTES = 160 * 1024
-APP_VERSION = "1.2.0"
+APP_VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 
 OPENCLAW_LATEST = {
     "release_title": "openclaw 2026.3.13",
@@ -1087,6 +1087,12 @@ def make_task(
         "branch_name": f"agent/{owner}/{task_id.lower()}-{branch_slug[:36]}",
         "pr_status": "not-opened",
         "updated_at": iso_now(),
+        "type": "task",
+        "reporter": "",
+        "acceptance_criteria": [],
+        "links": [],
+        "assignees": [normalize_text(owner, 32)] if owner else [],
+        "activity": [],
     }
 
 
@@ -2007,6 +2013,7 @@ def default_state() -> Dict[str, Any]:
 
     state = {
         "version": APP_VERSION,
+        "state_version": APP_VERSION,
         "created_at": iso_now(),
         "company": company,
         "openclaw_integration": {
@@ -2253,16 +2260,48 @@ def load_state() -> Dict[str, Any]:
             if state is None:
                 continue
             changed = False
-            for key in ["asset_library", "workspace", "sync_contract", "company", "platform_contract", "openclaw_integration", "skill_catalog", "org_templates", "office_layout"]:
-                if key not in state and key in defaults:
+            # Auto-merge ALL top-level keys from defaults so any new key added
+            # to default_state() in a future version is automatically populated
+            # in existing installations on first startup after upgrade.
+            for key in defaults:
+                if key not in state:
                     state[key] = copy.deepcopy(defaults[key])
                     changed = True
-            for key in ["asset_library", "office_layout"]:
+            # Deep-merge sub-keys for dict-typed sections
+            for key in defaults:
                 if isinstance(state.get(key), dict) and isinstance(defaults.get(key), dict):
                     for subkey, value in defaults[key].items():
                         if subkey not in state[key]:
                             state[key][subkey] = copy.deepcopy(value)
                             changed = True
+            # Stamp the state with the current app version so we can track
+            # which version last wrote this file.
+            if state.get("state_version") != APP_VERSION:
+                state["state_version"] = APP_VERSION
+                changed = True
+            # Migrate tasks: ensure all new fields exist in older state files
+            for task in state.get("tasks", []):
+                if "comments" not in task:
+                    task["comments"] = []
+                    changed = True
+                if "type" not in task:
+                    task["type"] = "task"
+                    changed = True
+                if "reporter" not in task:
+                    task["reporter"] = "ceo"
+                    changed = True
+                if "acceptance_criteria" not in task:
+                    task["acceptance_criteria"] = []
+                    changed = True
+                if "links" not in task:
+                    task["links"] = []
+                    changed = True
+                if "assignees" not in task:
+                    task["assignees"] = [task["owner"]] if task.get("owner") else []
+                    changed = True
+                if "activity" not in task:
+                    task["activity"] = []
+                    changed = True
             if refresh_demo_state(state):
                 changed = True
             if label != "primary":
@@ -3176,7 +3215,10 @@ TASK_FIELDS = {
     "issue_ref",
     "pr_status",
     "mission_id",
+    "type",
 }
+
+VALID_TASK_TYPES = {"bug", "story", "task", "spike", "epic"}
 
 
 def update_task(state: Dict[str, Any], payload: Dict[str, Any], emit_event: bool = True) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
@@ -3255,6 +3297,29 @@ def update_task(state: Dict[str, Any], payload: Dict[str, Any], emit_event: bool
         task["collaborators"] = normalize_list(task_payload["collaborators"], 6, 24)
     if "artifacts" in task_payload:
         task["artifacts"] = normalize_list(task_payload["artifacts"], 8, 120)
+    if "acceptance_criteria" in task_payload:
+        task["acceptance_criteria"] = normalize_list(task_payload["acceptance_criteria"], 10, 280)
+    if "definition_of_done" in task_payload:
+        task["definition_of_done"] = normalize_list(task_payload["definition_of_done"], 10, 200)
+    if "assignees" in task_payload:
+        task["assignees"] = normalize_list(task_payload["assignees"], 8, 32)
+    if "type" in task_payload:
+        requested_type = normalize_text(task_payload["type"], 32) or "task"
+        task["type"] = requested_type if requested_type in VALID_TASK_TYPES else "task"
+    # Activity log: record key field changes
+    actor = normalize_text(task_payload.get("author") or task_payload.get("updated_by") or "ceo", 32)
+    for field, old_val in [("status", old_status), ("owner", old_owner), ("priority", old_priority), ("horizon", old_horizon)]:
+        new_val = task.get(field)
+        if new_val != old_val and old_val is not None:
+            task.setdefault("activity", []).append({
+                "id": f"act-{iso_now().replace(':', '').replace('-', '').replace('+', '')[:15]}-{field[:4]}",
+                "author": actor,
+                "action": "changed",
+                "field": field,
+                "from": old_val,
+                "to": new_val,
+                "timestamp": iso_now(),
+            })
     routing = routing_candidates_for(state, task.get("specialist", "planning"), task.get("project_id"))
     task["recommended_owner"] = routing[0] if routing else recommended_owner_for(task.get("specialist", "planning"), task.get("owner"))
     task["backup_owner"] = routing[1] if len(routing) > 1 else backup_owner_for(task.get("specialist", "planning"), task.get("owner"))
@@ -4091,12 +4156,130 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
                 send_json(self, HTTPStatus.OK, {"ok": True, "task": output})
             return
 
-        if parsed.path == "/api/agents/decommission":
-            if not check_auth():
-                return
+        if parsed.path == "/api/tasks/create":
             with STATE_LOCK:
                 state = load_state()
-                result, error = decommission_agent(state, body)
+                result, error = create_task(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/tasks/delete":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = delete_task(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/tasks/comment":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = add_task_comment(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/tasks/link":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = link_tasks(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/missions/delete":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = delete_mission(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/sprints/delete":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = delete_sprint(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/projects/delete":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = delete_project(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/agents/decommission":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = decommission_agent(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/agents/retire":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = retire_agent(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/agents/replace":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = replace_agent(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/agents/merge":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = merge_agents(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/agents/update":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = update_agent(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/agents/delete":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = delete_agent(state, payload)
             if error:
                 send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
             else:
@@ -4104,35 +4287,9 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/org/configure":
-            if not check_auth():
-                return
             with STATE_LOCK:
                 state = load_state()
-                result, error = configure_org(state, body)
-            if error:
-                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
-            else:
-                send_json(self, HTTPStatus.OK, result)
-            return
-
-        if parsed.path == "/api/agents/decommission":
-            if not check_auth():
-                return
-            with STATE_LOCK:
-                state = load_state()
-                result, error = decommission_agent(state, body)
-            if error:
-                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
-            else:
-                send_json(self, HTTPStatus.OK, result)
-            return
-
-        if parsed.path == "/api/org/configure":
-            if not check_auth():
-                return
-            with STATE_LOCK:
-                state = load_state()
-                result, error = configure_org(state, body)
+                result, error = configure_org(state, payload)
             if error:
                 send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
             else:
@@ -4140,11 +4297,9 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/sprints/create":
-            if not check_auth():
-                return
             with STATE_LOCK:
                 state = load_state()
-                result, error = create_sprint(state, body)
+                result, error = create_sprint(state, payload)
             if error:
                 send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
             else:
@@ -4152,11 +4307,9 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/sprints/update":
-            if not check_auth():
-                return
             with STATE_LOCK:
                 state = load_state()
-                result, error = update_sprint(state, body)
+                result, error = update_sprint(state, payload)
             if error:
                 send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
             else:
@@ -4164,11 +4317,9 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/projects/configure":
-            if not check_auth():
-                return
             with STATE_LOCK:
                 state = load_state()
-                result, error = configure_project(state, body)
+                result, error = configure_project(state, payload)
             if error:
                 send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
             else:
@@ -4176,11 +4327,9 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/notifications/dismiss":
-            if not check_auth():
-                return
             with STATE_LOCK:
                 state = load_state()
-                result, error = dismiss_notifications(state, body)
+                result, error = dismiss_notifications(state, payload)
             if error:
                 send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
             else:
@@ -4235,8 +4384,187 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
                 send_json(self, HTTPStatus.OK, {"ok": True, "reset": True})
             return
 
+        if parsed.path == "/api/blank/reset":
+            with STATE_LOCK:
+                state = blank_state()
+                save_state(state)
+                send_json(self, HTTPStatus.OK, {"ok": True, "reset": True, "mode": "blank"})
+            return
+
+        if parsed.path == "/api/org/bootstrap":
+            with STATE_LOCK:
+                state = blank_state()
+                result, error = bootstrap_org(state, payload)
+                if error:
+                    send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+                else:
+                    save_state(state)
+                    send_json(self, HTTPStatus.OK, result)
+            return
+
         send_json(self, HTTPStatus.NOT_FOUND, {"error": "Unknown API endpoint"})
 
+
+
+def blank_state() -> Dict[str, Any]:
+    """Return a minimal state with no demo agents, tasks, missions, or conversations."""
+    now = utc_now()
+    projects = [{"id": "ceo-console", "name": "CEO Console", "status": "active"}]
+    company = {
+        "name": "My Organisation",
+        "tagline": "",
+        "ceo": {
+            "id": "ceo",
+            "name": "You",
+            "role": "CEO / Human operator",
+            "emoji": "👩‍💼",
+            "focus": ["priorities", "approvals", "budget", "exceptions", "team shape"],
+        },
+    }
+    state = {
+        "version": APP_VERSION,
+        "created_at": iso_now(),
+        "company": company,
+        "openclaw_integration": {
+            "latest_stable": OPENCLAW_LATEST["npm_version"],
+            "release_title": OPENCLAW_LATEST["release_title"],
+            "github_tag": OPENCLAW_LATEST["github_tag"],
+            "released_at": OPENCLAW_LATEST["released_at"],
+            "node_recommended": OPENCLAW_LATEST["node_recommended"],
+            "node_compatible": OPENCLAW_LATEST["node_compatible"],
+            "control_ui_url": OPENCLAW_LATEST["control_ui_url"],
+            "install_command": OPENCLAW_LATEST["install_command"],
+            "hooks_contract": {
+                "defaultSessionKey": "hook:clawtasker",
+                "allowRequestSessionKey": False,
+                "allowedSessionKeyPrefixes": ["hook:"],
+                "allowedAgentIds": [],
+            },
+            "team_publish": {
+                "endpoint": "http://127.0.0.1:3000/api/openclaw/publish",
+                "transport": "local bearer-token JSON publish",
+                "supported_events": ["heartbeat", "task_update", "validation", "conversation_note", "run", "roster_sync", "agent_register", "mission_plan"],
+            },
+            "official_channels": [],
+            "team_model": [],
+            "last_publish": None,
+            "recent_publish_signatures": [],
+        },
+        "sync_contract": {
+            "chief_agent": "",
+            "principles": [],
+            "heartbeat_seconds": 30,
+            "escalate_on": ["blocked", "validation", "overdue", "routing_mismatch", "error"],
+            "shared_workspace_model": "project-level shared repos, branch-per-task, PR validation before merge",
+        },
+        "platform_contract": {
+            "role": "Flexible collaboration hub for human user and AI specialist agents.",
+            "philosophy": [
+                "Use what helps, skip what doesn't. No methodology is enforced.",
+            ],
+            "visualization_only": True,
+            "api_for_agents": [],
+            "non_goals": [],
+            "restart_contract": [],
+            "conversation_boundary": [],
+        },
+        "projects": projects,
+        "agents": [],
+        "tasks": [],
+        "missions": [],
+        "calendar": {
+            "week_of": first_day_of_week(now).date().isoformat(),
+            "recurring_jobs": [],
+            "blocks": [],
+        },
+        "recent_runs": [],
+        "events": [],
+        "directives": [],
+        "sprints": [],
+        "notifications": [],
+        "conversations": [],
+        "asset_library": {
+            "name": "Pocket Office Quest - v9 Character Pack",
+            "office_background": "office_map_day_32bit.png",
+            "office_background_day": "office_map_day_32bit.png",
+            "office_background_night": "office_map_night_32bit.png",
+            "office_modes": ["day", "night"],
+            "ui_theme_default": f"{DEFAULT_UI_SETTINGS['theme_preset']} / {DEFAULT_UI_SETTINGS['theme_mode']}",
+            "office_object_bounds": len(OFFICE_OBJECT_BOUNDS),
+            "vendor": "Pocket Office Quest v9",
+            "avatar_mapping": {},
+        },
+        "ui_defaults": copy.deepcopy(DEFAULT_UI_SETTINGS),
+        "office_layout": {
+            "modes": ["day", "night"],
+            "active_default": DEFAULT_UI_SETTINGS["office_scene"],
+            "collision_policy": "unique seat anchors only",
+            "movement_policy": {
+                "cross_zone_behavior": "snap",
+                "same_zone_max_animated_distance": 180,
+                "respect_protected_bounds": True,
+                "object_bounds_count": len(OFFICE_OBJECT_BOUNDS),
+            },
+            "object_bounds": copy.deepcopy(OFFICE_OBJECT_BOUNDS),
+            "areas": [],
+        },
+        "workspace_blueprint": WORKSPACE_BLUEPRINT,
+        "skill_catalog": copy.deepcopy(SPECIALIST_CATALOG),
+        "org_templates": org_templates(),
+        "access_matrix": build_access_matrix(projects, []),
+        "github_flow": [],
+    }
+    return refresh_state_metadata(state)
+
+
+def bootstrap_org(state, payload) -> Tuple[Dict[str, Any], Optional[str]]:
+    """Bootstrap a blank state with company info, projects, and agents from a manifest."""
+    company_name = str(payload.get("company_name") or "").strip()[:120]
+    if company_name:
+        state["company"]["name"] = company_name
+    ceo_name = str(payload.get("ceo_name") or "").strip()[:80]
+    if ceo_name:
+        state["company"]["ceo"]["name"] = ceo_name
+    # Register projects from manifest
+    projects_manifest = payload.get("projects") or []
+    if not isinstance(projects_manifest, list):
+        return None, "projects must be a list"
+    for p in projects_manifest:
+        if not isinstance(p, dict):
+            continue
+        pid = str(p.get("project_id") or p.get("id") or "").strip()[:32]
+        if not pid:
+            continue
+        existing = next((x for x in state["projects"] if x.get("id") == pid), None)
+        if not existing:
+            state["projects"].append({
+                "id": pid,
+                "name": str(p.get("name") or pid)[:120],
+                "status": str(p.get("status") or "active")[:32],
+            })
+    # Register agents from manifest
+    agents_manifest = payload.get("agents") or []
+    if not isinstance(agents_manifest, list):
+        return None, "agents must be a list"
+    registered = []
+    errors = []
+    for agent_payload in agents_manifest:
+        if not isinstance(agent_payload, dict):
+            continue
+        _, err = register_agent(state, agent_payload)
+        if err:
+            errors.append(err)
+        else:
+            registered.append(str(agent_payload.get("agent_id") or agent_payload.get("id") or ""))
+    refresh_state_metadata(state)
+    result: Dict[str, Any] = {
+        "ok": True,
+        "agents_registered": registered,
+        "projects": [p["id"] for p in state["projects"]],
+    }
+    if errors:
+        result["warnings"] = errors
+    return result, None
 
 
 def decommission_agent(state, payload):
@@ -4269,12 +4597,272 @@ def decommission_agent(state, payload):
         if agent_id in assigned:
             assigned.remove(agent_id)
     save_state(state)
+    add_event(
+        state,
+        "agent_decommission",
+        f"{old_name} ({agent_id}) decommissioned",
+        agent_id,
+        reason,
+        agent.get("project_id") or "ceo-console",
+    )
     return {
         "ok": True,
         "message": f"Agent {old_name} ({agent_id}) marked offline",
         "agent_id": agent_id,
         "reason": reason,
         "tasks_unassigned": unassigned_tasks,
+    }, None
+
+
+def update_agent(state, payload):
+    """Update mutable fields on an existing agent without a full re-register."""
+    agent_id = normalize_text(payload.get("agent_id") or payload.get("id"), 64)
+    if not agent_id:
+        return None, "agent_id is required"
+    agent = next((a for a in state.get("agents", []) if a["id"] == agent_id), None)
+    if not agent:
+        return None, f"unknown agent: {agent_id}"
+    mutable_scalars = [
+        "name", "role", "manager", "profile_hue", "department",
+        "org_level", "team_id", "team_name", "coordination_scope",
+        "manager_title", "avatar_ref", "project_id", "note",
+        "done_summary", "doing_summary", "next_summary", "status",
+    ]
+    for field in mutable_scalars:
+        if field in payload:
+            agent[field] = normalize_text(payload[field], 220)
+    # emoji may contain supplementary Unicode chars (above U+FFFF) — assign directly
+    if "emoji" in payload and payload["emoji"] not in (None, ""):
+        agent["emoji"] = str(payload["emoji"])[:8]
+    if "skills" in payload:
+        agent["skills"] = normalize_list(payload["skills"], 10, 40)
+    if "specialists" in payload:
+        agent["specialists"] = normalize_list(payload["specialists"], 8, 32)
+    if "allowed_tools" in payload:
+        agent["allowed_tools"] = normalize_list(payload["allowed_tools"], 12, 24)
+    if "blockers" in payload:
+        agent["blockers"] = normalize_list(payload["blockers"], 6, 100)
+    if "collaborating_with" in payload:
+        agent["collaborating_with"] = normalize_list(payload["collaborating_with"], 8, 24)
+    enrich_agent_record(agent)
+    save_state(state)
+    add_event(state, "agent_update", f"{agent['name']} profile updated", agent_id, "", agent.get("project_id") or "ceo-console")
+    return {"ok": True, "agent": agent}, None
+
+
+def delete_agent(state, payload):
+    """Permanently remove an agent from the roster and unassign their work."""
+    agent_id = normalize_text(payload.get("agent_id") or payload.get("id"), 64)
+    if not agent_id:
+        return None, "agent_id is required"
+    chief_id = state.get("org", {}).get("chief_agent_id") or "orion"
+    if agent_id == chief_id:
+        return None, "cannot delete the chief agent"
+    agent = next((a for a in state.get("agents", []) if a["id"] == agent_id), None)
+    if not agent:
+        return None, f"unknown agent: {agent_id}"
+    agent_name = agent.get("name", agent_id)
+    # Unassign tasks
+    for task in state.get("tasks", []):
+        if task.get("owner") == agent_id:
+            task["owner"] = ""
+        if task.get("validation_owner") == agent_id:
+            task["validation_owner"] = ""
+    # Unlink from missions
+    for mission in state.get("missions", []):
+        if mission.get("owner") == agent_id:
+            mission["owner"] = ""
+        mission["agent_ids"] = [a for a in mission.get("agent_ids", []) if a != agent_id]
+    state["agents"] = [a for a in state["agents"] if a["id"] != agent_id]
+    save_state(state)
+    add_event(state, "agent_delete", f"{agent_name} permanently removed from roster", agent_id, "", "ceo-console")
+    return {"ok": True, "deleted": agent_id}, None
+
+
+def retire_agent(state, payload):
+    """Gracefully retire an agent, optionally handing off tasks to a successor."""
+    agent_id = str(payload.get("agent_id") or payload.get("id") or "").strip()[:32]
+    if not agent_id:
+        return None, "agent_id is required"
+    if agent_id == "ceo":
+        return None, "cannot retire the CEO"
+    agent = next((a for a in state.get("agents", []) if a.get("id") == agent_id), None)
+    if not agent:
+        return None, f"unknown agent: {agent_id}"
+    reason = str(payload.get("reason") or "retired")[:120]
+    old_name = agent.get("name", agent_id)
+    successor_id = str(payload.get("successor_id") or "").strip()[:32]
+    successor = None
+    if successor_id:
+        successor = next((a for a in state.get("agents", []) if a.get("id") == successor_id), None)
+        if not successor:
+            return None, f"unknown successor: {successor_id}"
+    transferred_tasks = []
+    for task in state.get("tasks", []):
+        if task.get("owner") == agent_id:
+            if successor:
+                task["owner"] = successor_id
+                task["owner_name"] = successor.get("name", successor_id)
+            else:
+                task["owner"] = ""
+                task["owner_name"] = "[unassigned]"
+            transferred_tasks.append(task["id"])
+        if task.get("validation_owner") == agent_id:
+            if successor:
+                task["validation_owner"] = successor_id
+                task["validation_owner_name"] = successor.get("name", successor_id)
+            else:
+                task["validation_owner"] = ""
+                task["validation_owner_name"] = "[unassigned]"
+    for mission in state.get("missions", []):
+        assigned = mission.get("assigned_agents", [])
+        if agent_id in assigned:
+            assigned.remove(agent_id)
+            if successor and successor_id not in assigned:
+                assigned.append(successor_id)
+    agent["status"] = "offline"
+    agent["derived_status"] = "offline"
+    agent["note"] = reason + (f" → {successor.get('name', successor_id)}" if successor else "")
+    agent["last_heartbeat"] = iso_now()
+    save_state(state)
+    details = reason + (f"; tasks transferred to {successor_id}" if successor else "")
+    add_event(
+        state,
+        "agent_retire",
+        f"{old_name} ({agent_id}) retired",
+        agent_id,
+        details,
+        agent.get("project_id") or "ceo-console",
+    )
+    result = {
+        "ok": True,
+        "message": f"Agent {old_name} ({agent_id}) retired",
+        "agent_id": agent_id,
+        "reason": reason,
+        "tasks_transferred": transferred_tasks,
+    }
+    if successor:
+        result["successor_id"] = successor_id
+    return result, None
+
+
+def replace_agent(state, payload):
+    """Transfer all assignments from old_agent_id to new_agent_id, then retire old agent."""
+    old_id = str(payload.get("old_agent_id") or "").strip()[:32]
+    new_id = str(payload.get("new_agent_id") or "").strip()[:32]
+    if not old_id:
+        return None, "old_agent_id is required"
+    if not new_id:
+        return None, "new_agent_id is required"
+    if old_id == "ceo":
+        return None, "cannot replace the CEO"
+    old_agent = next((a for a in state.get("agents", []) if a.get("id") == old_id), None)
+    if not old_agent:
+        return None, f"unknown agent: {old_id}"
+    new_agent = next((a for a in state.get("agents", []) if a.get("id") == new_id), None)
+    if not new_agent:
+        return None, f"unknown replacement agent: {new_id}"
+    reason = str(payload.get("reason") or f"replaced by {new_id}")[:120]
+    old_name = old_agent.get("name", old_id)
+    new_name = new_agent.get("name", new_id)
+    transferred_tasks = []
+    for task in state.get("tasks", []):
+        if task.get("owner") == old_id:
+            task["owner"] = new_id
+            task["owner_name"] = new_name
+            transferred_tasks.append(task["id"])
+        if task.get("validation_owner") == old_id:
+            task["validation_owner"] = new_id
+            task["validation_owner_name"] = new_name
+    for mission in state.get("missions", []):
+        assigned = mission.get("assigned_agents", [])
+        if old_id in assigned:
+            assigned.remove(old_id)
+            if new_id not in assigned:
+                assigned.append(new_id)
+    old_agent["status"] = "offline"
+    old_agent["derived_status"] = "offline"
+    old_agent["note"] = f"Replaced by {new_name} ({new_id}). {reason}"[:220]
+    old_agent["last_heartbeat"] = iso_now()
+    save_state(state)
+    add_event(
+        state,
+        "agent_replace",
+        f"{old_name} replaced by {new_name}",
+        new_id,
+        reason,
+        old_agent.get("project_id") or "ceo-console",
+    )
+    return {
+        "ok": True,
+        "message": f"Agent {old_name} ({old_id}) replaced by {new_name} ({new_id})",
+        "old_agent_id": old_id,
+        "new_agent_id": new_id,
+        "reason": reason,
+        "tasks_transferred": transferred_tasks,
+    }, None
+
+
+def merge_agents(state, payload):
+    """Merge source agent into target: transfer tasks/missions, merge skills, retire source."""
+    source_id = str(payload.get("source_agent_id") or "").strip()[:32]
+    target_id = str(payload.get("target_agent_id") or "").strip()[:32]
+    if not source_id:
+        return None, "source_agent_id is required"
+    if not target_id:
+        return None, "target_agent_id is required"
+    if source_id == target_id:
+        return None, "source_agent_id and target_agent_id must be different"
+    if source_id == "ceo":
+        return None, "cannot merge the CEO"
+    source = next((a for a in state.get("agents", []) if a.get("id") == source_id), None)
+    if not source:
+        return None, f"unknown agent: {source_id}"
+    target = next((a for a in state.get("agents", []) if a.get("id") == target_id), None)
+    if not target:
+        return None, f"unknown target agent: {target_id}"
+    source_name = source.get("name", source_id)
+    target_name = target.get("name", target_id)
+    # Merge skills and specialists from source into target (deduplicated)
+    for field in ("skills", "core_skills", "specialists"):
+        src_vals = source.get(field) or []
+        tgt_vals = target.get(field) or []
+        merged = tgt_vals + [v for v in src_vals if v not in tgt_vals]
+        target[field] = merged[:10]
+    transferred_tasks = []
+    for task in state.get("tasks", []):
+        if task.get("owner") == source_id:
+            task["owner"] = target_id
+            task["owner_name"] = target_name
+            transferred_tasks.append(task["id"])
+        if task.get("validation_owner") == source_id:
+            task["validation_owner"] = target_id
+            task["validation_owner_name"] = target_name
+    for mission in state.get("missions", []):
+        assigned = mission.get("assigned_agents", [])
+        if source_id in assigned:
+            assigned.remove(source_id)
+            if target_id not in assigned:
+                assigned.append(target_id)
+    source["status"] = "offline"
+    source["derived_status"] = "offline"
+    source["note"] = f"Merged into {target_name} ({target_id})"[:220]
+    source["last_heartbeat"] = iso_now()
+    save_state(state)
+    add_event(
+        state,
+        "agent_merge",
+        f"{source_name} merged into {target_name}",
+        target_id,
+        f"Tasks and missions transferred; skills combined",
+        target.get("project_id") or "ceo-console",
+    )
+    return {
+        "ok": True,
+        "message": f"Agent {source_name} ({source_id}) merged into {target_name} ({target_id})",
+        "source_agent_id": source_id,
+        "target_agent_id": target_id,
+        "tasks_transferred": transferred_tasks,
     }, None
 
 
@@ -4498,4 +5086,221 @@ def dismiss_notifications(state: Dict, payload: Dict) -> Tuple[Optional[Dict], O
             dismissed += 1
     save_state(state)
     return {"ok": True, "dismissed": dismissed}, None
+
+
+def _next_task_id(state: Dict) -> str:
+    nums = []
+    for t in state.get("tasks", []):
+        tid = t.get("id", "")
+        if tid.startswith("T-"):
+            try:
+                nums.append(int(tid[2:]))
+            except ValueError:
+                pass
+    return f"T-{max(nums) + 1 if nums else 200}"
+
+
+def create_task(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """Create a new task directly (API or GUI)."""
+    title = normalize_text(payload.get("title"), 120)
+    if not title:
+        return None, "title is required"
+    task_id = normalize_text(payload.get("id"), 32) or _next_task_id(state)
+    if next((t for t in state.get("tasks", []) if t.get("id") == task_id), None):
+        return None, f"task id already exists: {task_id}"
+    specialist = normalize_text(payload.get("specialist") or "planning", 32)
+    project_id = normalize_text(payload.get("project_id") or "ceo-console", 32)
+    owner      = normalize_text(payload.get("owner") or payload.get("owner_id") or "", 32)
+    priority   = normalize_text(payload.get("priority") or "P1", 8)
+    horizon    = normalize_text(payload.get("horizon") or "This Week", 32)
+    status_req = normalize_text(payload.get("status") or "backlog", 32)
+    description = normalize_text(payload.get("description") or title, 500)
+    validation_owner = normalize_text(payload.get("validation_owner") or "ralph", 32)
+    routing = routing_candidates_for(state, specialist, project_id)
+    if not owner:
+        owner = routing[0] if routing else recommended_owner_for(specialist, "")
+    task = make_task(
+        task_id, title, project_id,
+        status_req, specialist, owner,
+        priority, horizon, 7,
+        description,
+        normalize_list(payload.get("labels") or [], 12, 32),
+        max(0, min(100, int(payload.get("progress") or 0))),
+        validation_owner,
+        blocked=bool(payload.get("blocked", False)),
+        collaborators=normalize_list(payload.get("collaborators") or [], 6, 24),
+    )
+    # Apply optional extra fields
+    if payload.get("mission_id"):
+        task["mission_id"] = normalize_text(payload["mission_id"], 32)
+    if payload.get("story_points") in (1, 2, 3, 5, 8, 13):
+        task["story_points"] = int(payload["story_points"])
+    if payload.get("sprint_id"):
+        task["sprint_id"] = normalize_text(payload["sprint_id"], 20)
+    if payload.get("definition_of_done"):
+        task["definition_of_done"] = normalize_list(payload["definition_of_done"], 10, 200)
+    if payload.get("validation_steps"):
+        task["validation_steps"] = normalize_list(payload["validation_steps"], 10, 200)
+    if payload.get("acceptance_criteria"):
+        task["acceptance_criteria"] = normalize_list(payload["acceptance_criteria"], 10, 280)
+    requested_type = normalize_text(payload.get("type") or "task", 32)
+    task["type"] = requested_type if requested_type in VALID_TASK_TYPES else "task"
+    task["reporter"] = normalize_text(payload.get("reporter") or payload.get("author") or "ceo", 32)
+    extra_assignees = normalize_list(payload.get("assignees") or [], 8, 32)
+    task["assignees"] = list(dict.fromkeys([owner] + extra_assignees)) if owner else extra_assignees
+    task["links"] = []
+    task["activity"] = []
+    task["comments"] = []
+    state.setdefault("tasks", []).insert(0, task)
+    add_event(state, "task_created", f"{task_id} created", owner or "ceo", title, project_id)
+    save_state(state)
+    snap = snapshot_state(state)
+    output = next((t for t in snap["tasks"] if t["id"] == task_id), task)
+    return {"ok": True, "task": output}, None
+
+
+def delete_task(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """Permanently delete a task by ID."""
+    task_id = normalize_text(payload.get("task_id") or payload.get("id"), 32)
+    if not task_id:
+        return None, "task_id is required"
+    idx = next((i for i, t in enumerate(state.get("tasks", [])) if t["id"] == task_id), None)
+    if idx is None:
+        return None, f"unknown task: {task_id}"
+    task = state["tasks"].pop(idx)
+    # Remove from mission task_ids lists
+    for mission in state.get("missions", []):
+        if task_id in mission.get("task_ids", []):
+            mission["task_ids"] = [tid for tid in mission["task_ids"] if tid != task_id]
+    # Propagate dependency removal
+    for t in state.get("tasks", []):
+        if task_id in t.get("depends_on", []):
+            t["depends_on"] = [d for d in t["depends_on"] if d != task_id]
+        if task_id in t.get("blocking", []):
+            t["blocking"] = [d for d in t["blocking"] if d != task_id]
+        if t.get("links"):
+            t["links"] = [l for l in t["links"] if l.get("target_id") != task_id]
+    add_event(state, "task_deleted", f"{task_id} deleted", "ceo", task.get("title", task_id), task.get("project_id"))
+    save_state(state)
+    return {"ok": True, "task_id": task_id}, None
+
+
+_LINK_SYMMETRIC: Dict[str, str] = {
+    "relates-to": "relates-to",
+    "duplicates": "duplicates",
+    "blocks": "is-blocked-by",
+    "is-blocked-by": "blocks",
+    "child-of": "parent-of",
+    "parent-of": "child-of",
+}
+
+
+def link_tasks(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """Create a named link between two tasks (bidirectional, symmetric types handled)."""
+    source_id = normalize_text(payload.get("source_id") or payload.get("task_id"), 32)
+    target_id = normalize_text(payload.get("target_id"), 32)
+    link_type  = normalize_text(payload.get("link_type") or "relates-to", 32) or "relates-to"
+    if not source_id:
+        return None, "source_id is required"
+    if not target_id:
+        return None, "target_id is required"
+    if link_type not in _LINK_SYMMETRIC:
+        return None, f"invalid link_type: {link_type}. Valid: {sorted(_LINK_SYMMETRIC)}"
+    if source_id == target_id:
+        return None, "cannot link a task to itself"
+    source = next((t for t in state.get("tasks", []) if t["id"] == source_id), None)
+    target = next((t for t in state.get("tasks", []) if t["id"] == target_id), None)
+    if not source:
+        return None, f"unknown source task: {source_id}"
+    if not target:
+        return None, f"unknown target task: {target_id}"
+    # Prevent duplicate links
+    for lnk in source.get("links", []):
+        if lnk.get("target_id") == target_id and lnk.get("type") == link_type:
+            return None, f"link already exists: {source_id} {link_type} {target_id}"
+    source.setdefault("links", []).append({"type": link_type, "target_id": target_id, "title": target.get("title", target_id)})
+    sym = _LINK_SYMMETRIC[link_type]
+    target.setdefault("links", []).append({"type": sym, "target_id": source_id, "title": source.get("title", source_id)})
+    save_state(state)
+    add_event(state, "task_linked", f"{source_id} {link_type} {target_id}", "ceo",
+              f"{source.get('title',source_id)} → {target.get('title',target_id)}", source.get("project_id"))
+    return {"ok": True, "source_id": source_id, "target_id": target_id, "link_type": link_type, "symmetric_type": sym}, None
+
+
+def add_task_comment(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """Append a comment to a task's comments array."""
+    task_id = normalize_text(payload.get("task_id") or payload.get("id"), 32)
+    if not task_id:
+        return None, "task_id is required"
+    text = normalize_text(payload.get("text") or payload.get("comment"), 500)
+    if not text:
+        return None, "text is required"
+    task = next((t for t in state.get("tasks", []) if t["id"] == task_id), None)
+    if not task:
+        return None, f"unknown task: {task_id}"
+    author = normalize_text(payload.get("author") or payload.get("sender") or "ceo", 32)
+    comment = {
+        "id": f"CM-{int(time.time() * 1000)}-{len(task.get('comments', []))}",
+        "author": author,
+        "text": text,
+        "timestamp": iso_now(),
+    }
+    task.setdefault("comments", []).append(comment)
+    task["updated_at"] = iso_now()
+    add_event(state, "task_note", f"{task_id}: comment by {author}", author, text[:80], task.get("project_id"))
+    save_state(state)
+    return {"ok": True, "comment": comment, "task_id": task_id}, None
+
+
+def delete_mission(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """Permanently delete a mission by ID."""
+    mission_id = normalize_text(payload.get("mission_id") or payload.get("id"), 32)
+    if not mission_id:
+        return None, "mission_id is required"
+    idx = next((i for i, m in enumerate(state.get("missions", [])) if m["id"] == mission_id), None)
+    if idx is None:
+        return None, f"unknown mission: {mission_id}"
+    mission = state["missions"].pop(idx)
+    # Unlink tasks that belong to this mission
+    for task in state.get("tasks", []):
+        if task.get("mission_id") == mission_id:
+            task["mission_id"] = ""
+    add_event(state, "mission_deleted", f"Mission {mission_id} deleted", "ceo", mission.get("title", mission_id), mission.get("project_id"))
+    save_state(state)
+    return {"ok": True, "mission_id": mission_id}, None
+
+
+def delete_sprint(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """Delete a sprint. Tasks assigned to it become unsprinted."""
+    sprint_id = normalize_text(payload.get("sprint_id") or payload.get("id"), 20)
+    if not sprint_id:
+        return None, "sprint_id is required"
+    idx = next((i for i, s in enumerate(state.get("sprints", [])) if s["id"] == sprint_id), None)
+    if idx is None:
+        return None, f"unknown sprint: {sprint_id}"
+    sprint = state["sprints"].pop(idx)
+    for task in state.get("tasks", []):
+        if task.get("sprint_id") == sprint_id:
+            task["sprint_id"] = None
+    add_event(state, "sprint_deleted", f"Sprint {sprint['name']} deleted", "ceo", f"Sprint {sprint_id} removed", sprint.get("project_id", ""))
+    save_state(state)
+    return {"ok": True, "sprint_id": sprint_id}, None
+
+
+def delete_project(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """Delete a project. Tasks and agents referencing it keep their project_id for history."""
+    project_id = normalize_text(payload.get("project_id") or payload.get("id"), 32)
+    if not project_id:
+        return None, "project_id is required"
+    if project_id == "ceo-console":
+        return None, "cannot delete the default ceo-console project"
+    idx = next((i for i, p in enumerate(state.get("projects", [])) if p["id"] == project_id), None)
+    if idx is None:
+        return None, f"unknown project: {project_id}"
+    project = state["projects"].pop(idx)
+    add_event(state, "project_deleted", f"Project {project.get('name', project_id)} deleted", "ceo", f"Project {project_id} removed", project_id)
+    save_state(state)
+    return {"ok": True, "project_id": project_id}, None
+
+
 

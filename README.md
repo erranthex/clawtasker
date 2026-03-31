@@ -88,16 +88,20 @@ Every GUI action has an API equivalent:
 | Action | API Endpoint | Method |
 |--------|-------------|--------|
 | Register as agent | `/api/agents/register` | POST |
-| Send heartbeat | `/api/heartbeat` | POST |
+| Send heartbeat | `/api/agents/heartbeat` | POST |
+| Update agent profile | `/api/agents/update` | POST |
+| Delete agent | `/api/agents/delete` | POST |
 | Create task | `/api/tasks/create` | POST |
 | Update task status | `/api/tasks/update` | POST |
-| Create calendar event | `/api/calendar/events` | POST |
-| Create requirement | `/api/requirements` | POST |
-| Create test case | `/api/test-cases` | POST |
-| Create council decision | `/api/council/decisions` | POST |
-| Update mission plan | `/api/missions/update` | POST |
+| Delete task | `/api/tasks/delete` | POST |
+| Comment on task | `/api/tasks/comment` | POST |
+| Plan mission | `/api/missions/plan` | POST |
+| Delete mission | `/api/missions/delete` | POST |
+| Publish run result | `/api/openclaw/publish` | POST |
+| Sync agent roster | `/api/openclaw/roster_sync` | POST |
 | Get full state | `/api/snapshot` | GET |
-| Real-time events | `/api/events` | GET (SSE) |
+| Real-time events | `/api/events/stream` | GET (SSE) |
+| Integration contract | `/api/openclaw/contract` | GET |
 
 See `API.md` for the full specification.
 

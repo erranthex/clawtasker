@@ -125,6 +125,7 @@ function deleteTask(id){
   if(!confirm('Delete task '+id+'?'))return;
   const idx=TASKS.findIndex(t=>t.id===id);
   if(idx>=0)TASKS.splice(idx,1);
+  apiPost('/api/tasks/delete',{task_id:id}).catch(()=>{});
   renderPipeline();renderBoard();refreshCounters();
 }
 
@@ -206,5 +207,6 @@ function updateCouncilEntry(id){
 function deleteMission(id){
   if(!confirm('Delete mission '+id+'?'))return;
   missionsLocal=missionsLocal.filter(m=>m.id!==id);
+  apiPost('/api/missions/delete',{mission_id:id}).catch(()=>{});
   buildMissions();
 }
