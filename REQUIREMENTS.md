@@ -360,3 +360,37 @@ Tasks must support linking to output artifacts (files, documents, URLs).
 - Included in `PATCH /api/tasks/update` payload
 - Returned in all task responses
 - [x] Migration adds `activity: []` to existing tasks without the field
+
+## REQ-026: Content Security Policy — Inline Script Execution
+
+**Priority:** P0 (Critical)
+**Status:** Implemented (v1.6.0 hotfix)
+
+The server's CSP header must permit execution of the inline JavaScript bundle.
+
+**Root cause of v1.6.0 button regression:** `script-src 'self'` blocks inline `<script>` blocks. The entire ClawTasker UI is a single compiled HTML file with an inline JS bundle. Without `'unsafe-inline'` in `script-src`, the browser discards all JavaScript silently — the page renders its default state (Dashboard visible via hardcoded `class="on"`) but NO button clicks, navigation, or API calls work.
+
+- [x] `script-src` in CSP must include `'unsafe-inline'`
+- [x] Test: `GuiRegressionTests.test_csp_allows_inline_scripts` validates this on every build
+- [x] Acceptable for a local-first tool (runs on `127.0.0.1` only); `'unsafe-inline'` risk is bounded
+
+## REQ-027: GUI Regression Test Suite
+
+**Priority:** P0 (Critical)
+**Status:** Implemented (v1.6.0 hotfix)
+
+A `GuiRegressionTests` test class must run on every build to catch issues that break the web interface without requiring a live browser.
+
+Tests must cover:
+- [x] CSP allows inline scripts (`test_csp_allows_inline_scripts`)
+- [x] JS bundle is inline, not external (`test_js_bundle_is_inline_not_external`)
+- [x] JS bundle parses without syntax errors (`test_js_bundle_has_no_syntax_errors`)
+- [x] All nav button target view divs exist in HTML (`test_all_nav_view_ids_exist_in_html`)
+- [x] All required view IDs (`V_dash`, `V_board`, …) present (`test_required_view_ids_present`)
+- [x] All `onclick="fnName()"` functions defined in JS bundle (`test_all_onclick_functions_defined_in_bundle`)
+- [x] `goV`, `applySnapshot`, `showToast`, `buildUpdates` defined
+- [x] `API_TOKEN` defined in bundle
+- [x] META map has entry for every nav target (`test_meta_map_includes_all_nav_targets`)
+- [x] Build manifest version matches VERSION file
+- [x] All manifest JS modules exist on disk
+- [x] API smoke: `get_next_task` validates owner, `post_task_event` requires `type` field

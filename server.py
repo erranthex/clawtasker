@@ -4297,7 +4297,7 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
         self.send_header("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
         self.send_header(
             "Content-Security-Policy",
-            "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self' data:;",
+            "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self' data:;",
         )
         super().end_headers()
 

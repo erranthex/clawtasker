@@ -2787,3 +2787,191 @@ class SystemUpdateTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class GuiRegressionTests(unittest.TestCase):
+    """
+    GUI regression tests — catch issues that break the web interface.
+    These tests do NOT require a browser; they validate the built HTML/JS bundle
+    and server configuration without executing JS.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import re
+        dist = Path(server.__file__).resolve().parent / 'ui' / 'dist' / 'index.html'
+        cls.html = dist.read_text(encoding='utf-8')
+        script_match = re.search(r'<script>([\s\S]*?)<\/script>', cls.html)
+        cls.js = script_match.group(1) if script_match else ''
+        cls.script_tag = script_match.group(0)[:60] if script_match else ''
+
+    # ── CSP ──────────────────────────────────────────────────────────────────
+
+    def test_csp_allows_inline_scripts(self):
+        """
+        The built HTML uses an inline <script> block.
+        'script-src self' WITHOUT 'unsafe-inline' silently blocks all JS —
+        every button stops working. This was the v1.6.0 regression.
+        """
+        import re
+        handler_src = Path(server.__file__).read_text(encoding='utf-8')
+        # CSP spans two lines: "Content-Security-Policy",\n            "..."
+        csp_match = re.search(
+            r'"Content-Security-Policy"\s*,\s*\n\s*"([^"]+)"',
+            handler_src
+        )
+        self.assertIsNotNone(csp_match, "CSP header must be set in server.py")
+        csp = csp_match.group(1)
+        script_src = re.search(r'script-src ([^;]+)', csp)
+        self.assertIsNotNone(script_src, "script-src directive must be present in CSP")
+        self.assertIn("'unsafe-inline'", script_src.group(1),
+            "script-src must include 'unsafe-inline' — the JS bundle is embedded inline in index.html")
+
+    def test_js_bundle_is_inline_not_external(self):
+        """Confirm the build embeds JS inline so the CSP check is always relevant."""
+        import re
+        # Should have exactly one <script> with inline content (no src= attribute)
+        inline = re.findall(r'<script>[\s\S]+?</script>', self.html)
+        external = re.findall(r'<script\s+src=', self.html)
+        self.assertGreater(len(inline), 0, "Built HTML must contain an inline <script> block")
+        self.assertEqual(len(external), 0, "Built HTML must not use external script references")
+
+    def test_js_bundle_has_no_syntax_errors(self):
+        """The concatenated JS bundle must parse without syntax errors."""
+        import subprocess, shutil
+        if not shutil.which('node'):
+            self.skipTest("node not available")
+        # Write JS to a temp file and parse it — avoids escaping issues with -e
+        with tempfile.NamedTemporaryFile(suffix='.js', mode='w', delete=False) as f:
+            f.write('void function(){\n' + self.js + '\n}')
+            tmp = f.name
+        try:
+            result = subprocess.run(['node', '--check', tmp], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0,
+                f"JS syntax error in built bundle: {result.stderr[:400]}")
+        finally:
+            Path(tmp).unlink(missing_ok=True)
+
+    # ── View completeness ─────────────────────────────────────────────────────
+
+    def test_all_nav_view_ids_exist_in_html(self):
+        """Every sidebar nav button's target view div must exist in the HTML."""
+        import re
+        # Extract all goV() targets from nav onclick handlers
+        targets = re.findall(r"onclick=[\"']goV\('([^']+)'", self.html)
+        missing = [t for t in targets if f'id="V_{t}"' not in self.html]
+        self.assertEqual(missing, [],
+            f"Nav buttons point to missing view divs: {missing}")
+
+    def test_required_view_ids_present(self):
+        """All expected view divs must be present in the built HTML."""
+        expected = ['V_dash', 'V_team', 'V_council', 'V_cal', 'V_board',
+                    'V_pipeline', 'V_approvals', 'V_miss', 'V_conv',
+                    'V_off', 'V_acc', 'V_app', 'V_req', 'V_tc', 'V_updates']
+        missing = [v for v in expected if f'id="{v}"' not in self.html]
+        self.assertEqual(missing, [], f"Missing view divs: {missing}")
+
+    # ── Function completeness ─────────────────────────────────────────────────
+
+    def test_all_onclick_functions_defined_in_bundle(self):
+        """Every function called from an onclick handler must be defined in the JS bundle."""
+        import re
+        # Extract function names from onclick="fnName(...)"
+        onclick_fns = set(re.findall(r'onclick="([a-zA-Z_$][a-zA-Z0-9_$]*)\(', self.html))
+        # Exclude native/keyword tokens
+        builtins = {'alert', 'confirm', 'if', 'event', 'location', 'document', 'window'}
+        onclick_fns -= builtins
+        missing = [fn for fn in sorted(onclick_fns)
+                   if f'function {fn}' not in self.js and f'function {fn}\n' not in self.js]
+        self.assertEqual(missing, [],
+            f"onclick handlers reference undefined functions: {missing}")
+
+    def test_goV_function_defined(self):
+        self.assertIn('function goV(', self.js, "goV navigation function must be defined")
+
+    def test_applySnapshot_function_defined(self):
+        self.assertIn('function applySnapshot(', self.js, "applySnapshot must be defined")
+
+    def test_showToast_function_defined(self):
+        self.assertIn('function showToast(', self.js, "showToast must be defined for error feedback")
+
+    def test_buildUpdates_function_defined(self):
+        self.assertIn('function buildUpdates(', self.js, "buildUpdates must be defined for Updates tab")
+
+    # ── Key globals ──────────────────────────────────────────────────────────
+
+    def test_api_token_defined_in_bundle(self):
+        self.assertIn('API_TOKEN', self.js, "API_TOKEN must be defined in bundle")
+
+    def test_meta_map_includes_all_nav_targets(self):
+        """META map must have an entry for every nav target so TB_S/TB_P get set."""
+        import re
+        targets = set(re.findall(r"onclick=[\"']goV\('([^']+)'", self.html))
+        # META is on one line: const META={dash:{...},team:{...},...};
+        # Use a line-based search instead of a single greedy regex
+        meta_line = next((l for l in self.js.split('\n') if 'const META=' in l), None)
+        self.assertIsNotNone(meta_line, "META map must be defined")
+        missing = [t for t in targets if f'{t}:' not in meta_line]
+        self.assertEqual(missing, [],
+            f"META map missing entries for nav targets: {missing}")
+
+    # ── API smoke tests ──────────────────────────────────────────────────────
+
+    def test_api_tasks_next_requires_owner(self):
+        state = server.default_state()
+        result, err = server.get_next_task(state, {})
+        self.assertIsNotNone(err, "get_next_task should require owner param")
+        self.assertIn("owner", err)
+
+    def test_api_tasks_next_returns_task_for_valid_owner(self):
+        state = server.default_state()
+        # Find an agent that has a ready task
+        ready_tasks = [t for t in state['tasks'] if t.get('status') == 'ready']
+        if ready_tasks:
+            owner = ready_tasks[0]['owner']
+            result, err = server.get_next_task(state, {'owner': owner})
+            self.assertIsNone(err)
+            self.assertIn('task', result)
+
+    def test_api_tasks_event_type_field_required(self):
+        """event type must use 'type' field, not 'event' field."""
+        state = server.default_state()
+        r, _ = server.create_task(state, {'title': 'Event test'})
+        tid = r['task']['id']
+        # Wrong field name
+        _, err = server.post_task_event(state, {'task_id': tid, 'event': 'started', 'agent_id': 'orion'})
+        self.assertIsNotNone(err, "Should error when 'event' field used instead of 'type'")
+        # Correct field name — advance to ready first
+        server.update_task(state, {'id': tid, 'status': 'ready'})
+        result, err = server.post_task_event(state, {'task_id': tid, 'type': 'started', 'agent_id': 'orion'})
+        self.assertIsNone(err, f"Should succeed with 'type' field: {err}")
+        self.assertEqual(result['task']['status'], 'in_progress')
+
+    def test_api_tasks_event_blocked_does_not_require_status_change(self):
+        state = server.default_state()
+        r, _ = server.create_task(state, {'title': 'Blockable'})
+        tid = r['task']['id']
+        result, err = server.post_task_event(state, {'task_id': tid, 'type': 'blocked', 'agent_id': 'orion'})
+        self.assertIsNone(err)
+        self.assertTrue(result['task'].get('blocked'))
+
+    def test_system_version_endpoint_in_server(self):
+        info = server.get_system_version()
+        self.assertEqual(info['local_version'], server.APP_VERSION)
+
+    # ── Build manifest ────────────────────────────────────────────────────────
+
+    def test_build_manifest_version_matches_version_file(self):
+        manifest = json.loads(
+            (Path(server.__file__).resolve().parent / 'ui' / 'src' / 'build-manifest.json').read_text()
+        )
+        self.assertEqual(manifest['version'], server.APP_VERSION)
+
+    def test_all_manifest_modules_exist_on_disk(self):
+        manifest_path = Path(server.__file__).resolve().parent / 'ui' / 'src' / 'build-manifest.json'
+        manifest = json.loads(manifest_path.read_text())
+        modules_dir = manifest_path.parent / 'modules'
+        missing = [m for m in manifest['js_modules']
+                   if not (modules_dir / m).exists()]
+        self.assertEqual(missing, [], f"Modules in manifest but missing from disk: {missing}")
+
+
