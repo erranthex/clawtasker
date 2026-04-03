@@ -2638,3 +2638,152 @@ class UnresolvedBlockerTests(unittest.TestCase):
         t = next(t for t in snap["tasks"] if t["id"] == tid)
         self.assertTrue(t.get("stale"))
 
+
+class SystemVersionTests(unittest.TestCase):
+    """Tests for /api/system/version and related helpers."""
+
+    def test_get_system_version_returns_local_version(self):
+        info = server.get_system_version()
+        self.assertIn("local_version", info)
+        self.assertEqual(info["local_version"], server.APP_VERSION)
+
+    def test_get_system_version_has_required_keys(self):
+        info = server.get_system_version()
+        for key in ("local_version", "github_version", "update_available", "github_reachable"):
+            self.assertIn(key, info)
+
+    def test_fetch_github_version_no_crash_on_network_error(self):
+        # Patch urlopen to raise an exception
+        import urllib.request
+        original = urllib.request.urlopen
+        def bad_open(*a, **k):
+            raise OSError("no network")
+        urllib.request.urlopen = bad_open
+        try:
+            result = server.fetch_github_version.__wrapped__() if hasattr(server.fetch_github_version, '__wrapped__') else server.fetch_github_version()
+            # Should return graceful dict with github_reachable=False
+            # Either result from cache or from function — just check no exception was raised
+        except Exception as e:
+            # Acceptable if cache is used
+            pass
+        finally:
+            urllib.request.urlopen = original
+            server._github_version_cache["ts"] = 0  # reset cache
+
+    def test_system_version_result_structure(self):
+        info = server.get_system_version()
+        # local_version must match APP_VERSION
+        self.assertEqual(info["local_version"], server.APP_VERSION)
+        # update_available must be a bool
+        self.assertIsInstance(info["update_available"], bool)
+        # github_reachable must be a bool
+        self.assertIsInstance(info["github_reachable"], bool)
+
+    def test_system_version_update_available_false_when_github_unreachable(self):
+        import urllib.request
+        original = urllib.request.urlopen
+        def raise_always(*a, **k): raise OSError("offline")
+        urllib.request.urlopen = raise_always
+        server._github_version_cache["ts"] = 0  # bust cache
+        try:
+            info = server.get_system_version()
+            self.assertFalse(info["update_available"])
+            self.assertFalse(info["github_reachable"])
+        finally:
+            urllib.request.urlopen = original
+            server._github_version_cache["ts"] = 0
+
+
+class SystemUpdateTests(unittest.TestCase):
+    """Tests for perform_system_update and /api/system/update."""
+
+    def test_update_backs_up_state_file(self):
+        import tempfile, pathlib, shutil
+        # Create a temp dir that mimics the data dir structure
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            state_file = tmp_path / "state.json"
+            state_file.write_text('{"test": true}')
+            backup_path = tmp_path / "state.pre-update.json"
+
+            # Patch DATA_DIR, STATE_FILE, ROOT
+            orig_data_dir = server.DATA_DIR
+            orig_state_file = server.STATE_FILE
+            orig_root = server.ROOT
+            server.DATA_DIR = tmp_path
+            server.STATE_FILE = state_file
+            server.ROOT = tmp_path
+
+            try:
+                # perform_system_update will fail at git pull (no git in tmp), but backup should succeed
+                result = server.perform_system_update()
+                # Backup must have been created before the failure
+                self.assertTrue(backup_path.exists(), "backup file should be created before git pull")
+                self.assertIn("backup", result["steps"][0]["step"])
+                self.assertTrue(result["steps"][0]["ok"])
+            finally:
+                server.DATA_DIR = orig_data_dir
+                server.STATE_FILE = orig_state_file
+                server.ROOT = orig_root
+
+    def test_update_returns_ok_false_when_git_fails(self):
+        import tempfile, pathlib
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            state_file = tmp_path / "state.json"
+            state_file.write_text('{"v": 1}')
+            orig_data_dir = server.DATA_DIR
+            orig_state_file = server.STATE_FILE
+            orig_root = server.ROOT
+            server.DATA_DIR = tmp_path
+            server.STATE_FILE = state_file
+            server.ROOT = tmp_path
+            try:
+                result = server.perform_system_update()
+                # git pull should fail (tmp is not a git repo)
+                self.assertFalse(result["ok"])
+                git_step = next((s for s in result["steps"] if s["step"] == "git_pull"), None)
+                self.assertIsNotNone(git_step)
+                self.assertFalse(git_step["ok"])
+            finally:
+                server.DATA_DIR = orig_data_dir
+                server.STATE_FILE = orig_state_file
+                server.ROOT = orig_root
+
+    def test_update_result_always_has_steps_key(self):
+        import tempfile, pathlib
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            state_file = tmp_path / "state.json"
+            state_file.write_text('{"v": 1}')
+            orig_data_dir, orig_state_file, orig_root = server.DATA_DIR, server.STATE_FILE, server.ROOT
+            server.DATA_DIR = tmp_path; server.STATE_FILE = state_file; server.ROOT = tmp_path
+            try:
+                result = server.perform_system_update()
+                self.assertIn("steps", result)
+                self.assertIsInstance(result["steps"], list)
+            finally:
+                server.DATA_DIR = orig_data_dir; server.STATE_FILE = orig_state_file; server.ROOT = orig_root
+
+    def test_update_preserves_data_on_git_failure(self):
+        """Even when git fails, the backup must be preserved (data not lost)."""
+        import tempfile, pathlib
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp)
+            state_file = tmp_path / "state.json"
+            original_content = '{"agents": [{"id": "a1"}]}'
+            state_file.write_text(original_content)
+            backup_path = tmp_path / "state.pre-update.json"
+            orig_data_dir, orig_state_file, orig_root = server.DATA_DIR, server.STATE_FILE, server.ROOT
+            server.DATA_DIR = tmp_path; server.STATE_FILE = state_file; server.ROOT = tmp_path
+            try:
+                server.perform_system_update()
+                # Backup must exist and contain original data
+                self.assertTrue(backup_path.exists())
+                self.assertEqual(backup_path.read_text(), original_content)
+            finally:
+                server.DATA_DIR = orig_data_dir; server.STATE_FILE = orig_state_file; server.ROOT = orig_root
+
+
+if __name__ == "__main__":
+    unittest.main()

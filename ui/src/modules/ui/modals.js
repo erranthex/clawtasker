@@ -388,7 +388,14 @@ function submitTaskEdit(id){
 function apiPost(path,body){
   const tok=typeof API_TOKEN!=='undefined'?API_TOKEN:'';
   return fetch(path,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
-    body:JSON.stringify(body)}).then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error||'Server error');}));
+    body:JSON.stringify(body)}).then(r=>r.ok?r.json():r.json().then(e=>{
+      const msg=e.error||'Server error';
+      if(typeof showToast==='function') showToast('Error: '+msg,'error');
+      throw new Error(msg);
+    })).catch(err=>{
+      if(typeof showToast==='function') showToast('Request failed: '+(err.message||'network error'),'error');
+      throw err;
+    });
 }
 
 // ── Task comment ──────────────────────────────────────────────────────────────

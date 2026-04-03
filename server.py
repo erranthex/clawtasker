@@ -11,8 +11,10 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import threading
 import time
+import urllib.request
 from collections import defaultdict, deque
 from queue import Empty, Queue
 from datetime import datetime, timedelta, timezone
@@ -4164,6 +4166,122 @@ def send_json(handler: SimpleHTTPRequestHandler, status: HTTPStatus, payload: Di
     handler.wfile.write(body)
 
 
+# ── System version + safe-update helpers ──────────────────────────────────────
+
+GITHUB_REPO = "erranthex/clawtasker"
+_github_version_cache: Dict[str, Any] = {"ts": 0, "data": None}
+_GH_CACHE_TTL = 300  # seconds
+
+
+def fetch_github_version() -> Dict[str, Any]:
+    """Fetch the latest release tag from GitHub (cached for 5 min, never raises)."""
+    now = time.time()
+    if _github_version_cache["data"] and now - _github_version_cache["ts"] < _GH_CACHE_TTL:
+        return _github_version_cache["data"]
+    try:
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+        req = urllib.request.Request(url, headers={"User-Agent": "ClawTasker/" + APP_VERSION})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read().decode())
+        tag = data.get("tag_name", "").lstrip("v")
+        result: Dict[str, Any] = {
+            "github_version": tag,
+            "github_tag": data.get("tag_name", ""),
+            "release_name": data.get("name", ""),
+            "published_at": data.get("published_at", ""),
+            "update_available": tag != APP_VERSION and bool(tag),
+            "github_reachable": True,
+        }
+    except Exception as exc:
+        result = {
+            "github_version": None,
+            "github_tag": None,
+            "release_name": None,
+            "published_at": None,
+            "update_available": False,
+            "github_reachable": False,
+            "github_error": str(exc),
+        }
+    _github_version_cache["ts"] = now
+    _github_version_cache["data"] = result
+    return result
+
+
+def get_system_version() -> Dict[str, Any]:
+    """Return local + GitHub version info for the /api/system/version endpoint."""
+    gh = fetch_github_version()
+    return {
+        "local_version": APP_VERSION,
+        "github_version": gh.get("github_version"),
+        "github_tag": gh.get("github_tag"),
+        "release_name": gh.get("release_name"),
+        "published_at": gh.get("published_at"),
+        "update_available": gh.get("update_available", False),
+        "github_reachable": gh.get("github_reachable", False),
+    }
+
+
+def perform_system_update() -> Dict[str, Any]:
+    """
+    Safe rolling update:
+    1. Back up data/state.json to data/state.pre-update.json
+    2. git pull origin main
+    3. python3 scripts/build_ui.py
+    Returns a result dict. Never raises.
+    """
+    backup_path = DATA_DIR / "state.pre-update.json"
+    steps: List[Dict[str, Any]] = []
+
+    # Step 1 — back up data
+    backed_up = False
+    try:
+        if STATE_FILE.exists():
+            shutil.copy2(STATE_FILE, backup_path)
+            backed_up = True
+        steps.append({"step": "backup", "ok": True, "detail": str(backup_path) if backed_up else "no state file"})
+    except Exception as exc:
+        steps.append({"step": "backup", "ok": False, "detail": str(exc)})
+        return {"ok": False, "steps": steps, "error": "Backup failed — update aborted for safety"}
+
+    # Step 2 — git pull
+    try:
+        r = subprocess.run(
+            ["git", "pull", "origin", "main"],
+            cwd=str(ROOT), capture_output=True, text=True, timeout=60
+        )
+        ok = r.returncode == 0
+        steps.append({"step": "git_pull", "ok": ok, "detail": (r.stdout + r.stderr).strip()})
+        if not ok:
+            return {"ok": False, "steps": steps, "error": "git pull failed — code not updated"}
+    except Exception as exc:
+        steps.append({"step": "git_pull", "ok": False, "detail": str(exc)})
+        return {"ok": False, "steps": steps, "error": "git pull error"}
+
+    # Step 3 — rebuild UI
+    try:
+        r = subprocess.run(
+            ["python3", "scripts/build_ui.py"],
+            cwd=str(ROOT), capture_output=True, text=True, timeout=120
+        )
+        ok = r.returncode == 0
+        steps.append({"step": "build_ui", "ok": ok, "detail": (r.stdout + r.stderr).strip()[-500:]})
+    except Exception as exc:
+        steps.append({"step": "build_ui", "ok": False, "detail": str(exc)})
+        return {"ok": False, "steps": steps, "error": "UI rebuild failed — server is updated but UI may need manual rebuild"}
+
+    # Invalidate version cache so next /api/system/version reflects new version
+    _github_version_cache["ts"] = 0
+
+    new_version = (ROOT / "VERSION").read_text(encoding="utf-8").strip() if (ROOT / "VERSION").exists() else APP_VERSION
+    return {
+        "ok": True,
+        "steps": steps,
+        "new_version": new_version,
+        "backup": str(backup_path),
+        "message": f"Update complete. New version: {new_version}. Reload the page to get the latest UI.",
+    }
+
+
 class ClawTaskerHandler(SimpleHTTPRequestHandler):
     server_version = f"ClawTaskerCEOConsole/{APP_VERSION}"
 
@@ -4239,6 +4357,11 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/tasks/templates":
             send_json(self, HTTPStatus.OK, {"ok": True, "templates": TASK_TEMPLATES})
+            return
+        if parsed.path == "/api/system/version":
+            if not require_auth(self):
+                return
+            send_json(self, HTTPStatus.OK, {"ok": True, **get_system_version()})
             return
         if parsed.path == "/api/openclaw/contract":
             with STATE_LOCK:
@@ -4592,6 +4715,12 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
                 else:
                     save_state(state)
                     send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/system/update":
+            result = perform_system_update()
+            status = HTTPStatus.OK if result.get("ok") else HTTPStatus.INTERNAL_SERVER_ERROR
+            send_json(self, status, result)
             return
 
         send_json(self, HTTPStatus.NOT_FOUND, {"error": "Unknown API endpoint"})
@@ -5102,10 +5231,6 @@ def main() -> None:
     httpd.serve_forever()
 
 
-if __name__ == "__main__":
-    main()
-
-
 # ═══════════════════════════════════════════════════════════════════════════
 # v1.0.5 ADDITIONS: Sprints, dependencies, story points, project types,
 #                   agent workload, notifications
@@ -5571,3 +5696,7 @@ def delete_project(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional
 
 
 
+
+
+if __name__ == '__main__':
+    main()

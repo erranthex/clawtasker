@@ -71,7 +71,7 @@ def main():
     
     manifest = json.loads(read_file(manifest_path))
     check(f"manifest version = {version}", manifest['version'] == version)
-    check(f"manifest has {len(manifest['js_modules'])} modules", len(manifest['js_modules']) == 22)
+    check(f"manifest has {len(manifest['js_modules'])} modules", len(manifest['js_modules']) == 23)
     check("main.js is last module", manifest['js_modules'][-1] == 'main.js')
     
     # === MODULES ===

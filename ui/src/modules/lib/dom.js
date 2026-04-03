@@ -1,3 +1,22 @@
+// ── Toast notifications ────────────────────────────────────────────────────
+function showToast(msg, type) {
+  // type: 'error' | 'success' | 'info'  (default: 'info')
+  let container = document.getElementById('TOAST_CONTAINER');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'TOAST_CONTAINER';
+    container.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none';
+    document.body.appendChild(container);
+  }
+  const t = document.createElement('div');
+  const colors = { error: '#e05555', success: '#5ec8a0', info: '#6ba3ff' };
+  const color = colors[type] || colors.info;
+  t.style.cssText = `background:var(--bg2,#1e2028);border:1px solid ${color};border-left:4px solid ${color};color:var(--tx,#e8eaf0);padding:10px 16px;border-radius:6px;font-size:.82rem;max-width:320px;pointer-events:auto;opacity:1;transition:opacity .4s`;
+  t.textContent = msg;
+  container.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 4000);
+}
+
 // ── Util ───────────────────────────────────────────────────────────────────
 function mk(tag,cls){const e=document.createElement(tag);if(cls)e.className=cls;return e;}
 function txt(tag,cls,content){const e=mk(tag,cls);e.textContent=content;return e;}
