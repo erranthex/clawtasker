@@ -2290,3 +2290,351 @@ class ActivityLogTests(unittest.TestCase):
             task = next(t for t in reloaded["tasks"] if t["id"] == state["tasks"][0]["id"])
             self.assertEqual(task.get("activity"), [])
 
+
+# ── v1.6.0: Next eligible task ────────────────────────────────────────────────
+
+class NextTaskTests(unittest.TestCase):
+
+    def test_returns_ready_task_for_owner(self):
+        state = server.default_state()
+        state["tasks"] = []
+        r, _ = server.create_task(state, {"title": "Next test", "owner": "codex", "status": "ready"})
+        result, err = server.get_next_task(state, {"owner": "codex"})
+        self.assertIsNone(err)
+        self.assertIsNotNone(result["task"])
+        self.assertEqual(result["task"]["id"], r["task"]["id"])
+
+    def test_requires_owner_param(self):
+        state = server.default_state()
+        _, err = server.get_next_task(state, {})
+        self.assertIsNotNone(err)
+        self.assertIn("owner", err)
+
+    def test_rejects_unknown_owner(self):
+        state = server.default_state()
+        _, err = server.get_next_task(state, {"owner": "nobody_xyz"})
+        self.assertIsNotNone(err)
+        self.assertIn("unknown owner", err)
+
+    def test_skips_tasks_with_unresolved_depends_on(self):
+        state = server.default_state()
+        state["tasks"] = []
+        r1, _ = server.create_task(state, {"title": "Blocker", "owner": "codex", "status": "ready"})
+        tid1 = r1["task"]["id"]
+        server.update_task(state, {"id": tid1, "status": "in_progress"})
+        r2, _ = server.create_task(state, {"title": "Blocked", "owner": "codex", "status": "ready"})
+        tid2 = r2["task"]["id"]
+        # Set depends_on via update_task (create_task does not expose depends_on)
+        server.update_task(state, {"id": tid2, "depends_on": [tid1]})
+        result, err = server.get_next_task(state, {"owner": "codex"})
+        self.assertIsNone(err)
+        if result["task"]:
+            self.assertNotEqual(result["task"]["id"], tid2)
+
+    def test_skips_non_ready_tasks(self):
+        state = server.default_state()
+        state["tasks"] = []
+        server.create_task(state, {"title": "In progress", "owner": "codex", "status": "in_progress"})
+        server.create_task(state, {"title": "Backlog", "owner": "codex", "status": "backlog"})
+        result, _ = server.get_next_task(state, {"owner": "codex"})
+        if result["task"]:
+            self.assertEqual(result["task"]["status"], "ready")
+
+    def test_project_filter_respected(self):
+        state = server.default_state()
+        state["tasks"] = []
+        server.create_task(state, {"title": "A", "owner": "codex", "status": "ready", "project_id": "atlas-core"})
+        server.create_task(state, {"title": "B", "owner": "codex", "status": "ready", "project_id": "market-radar"})
+        result, _ = server.get_next_task(state, {"owner": "codex", "project": "atlas-core"})
+        if result["task"]:
+            self.assertEqual(result["task"]["project_id"], "atlas-core")
+
+    def test_returns_null_task_when_no_eligible(self):
+        state = server.default_state()
+        state["tasks"] = []
+        owner_id = state["agents"][0]["id"]
+        result, err = server.get_next_task(state, {"owner": owner_id})
+        self.assertIsNone(err)
+        self.assertIsNone(result["task"])
+
+    def test_p0_task_returned_before_p2(self):
+        state = server.default_state()
+        state["tasks"] = []
+        r_p2, _ = server.create_task(state, {"title": "Low", "owner": "codex", "status": "ready", "priority": "P2"})
+        r_p0, _ = server.create_task(state, {"title": "High", "owner": "codex", "status": "ready", "priority": "P0"})
+        result, _ = server.get_next_task(state, {"owner": "codex"})
+        self.assertIsNotNone(result["task"])
+        self.assertEqual(result["task"]["id"], r_p0["task"]["id"])
+
+    def test_ceo_is_valid_owner(self):
+        state = server.default_state()
+        state["tasks"] = []
+        server.create_task(state, {"title": "CEO task", "owner": "ceo", "status": "ready"})
+        result, err = server.get_next_task(state, {"owner": "ceo"})
+        self.assertIsNone(err)
+        self.assertIsNotNone(result["task"])
+
+
+# ── v1.6.0: Task event shorthand ─────────────────────────────────────────────
+
+class TaskEventTests(unittest.TestCase):
+
+    def _make_task(self, state, status="ready"):
+        r, _ = server.create_task(state, {"title": "EV task", "owner": "codex", "status": "backlog"})
+        tid = r["task"]["id"]
+        if status != "backlog":
+            server.update_task(state, {"id": tid, "status": "ready"})
+        if status == "in_progress":
+            server.update_task(state, {"id": tid, "status": "in_progress"})
+        return tid
+
+    def test_started_event_sets_in_progress(self):
+        state = server.default_state()
+        tid = self._make_task(state, "ready")
+        result, err = server.post_task_event(state, {"type": "started", "task_id": tid, "agent_id": "codex"})
+        self.assertIsNone(err)
+        task = next(t for t in state["tasks"] if t["id"] == tid)
+        self.assertEqual(task["status"], "in_progress")
+
+    def test_blocked_event_sets_blocked_flag(self):
+        state = server.default_state()
+        tid = self._make_task(state, "in_progress")
+        result, err = server.post_task_event(state, {
+            "type": "blocked", "task_id": tid, "agent_id": "codex", "note": "Waiting on deploy key"
+        })
+        self.assertIsNone(err)
+        task = next(t for t in state["tasks"] if t["id"] == tid)
+        self.assertTrue(task["blocked"])
+        self.assertTrue(any("Waiting on deploy key" in c["text"] for c in task.get("comments", [])))
+
+    def test_done_event_marks_done(self):
+        state = server.default_state()
+        tid = self._make_task(state, "in_progress")
+        server.update_task(state, {"id": tid, "status": "validation"})
+        _, err = server.post_task_event(state, {"type": "done", "task_id": tid, "agent_id": "codex"})
+        self.assertIsNone(err)
+        task = next(t for t in state["tasks"] if t["id"] == tid)
+        self.assertEqual(task["status"], "done")
+
+    def test_needs_validation_event(self):
+        state = server.default_state()
+        tid = self._make_task(state, "in_progress")
+        _, err = server.post_task_event(state, {"type": "needs-validation", "task_id": tid, "agent_id": "codex"})
+        self.assertIsNone(err)
+        task = next(t for t in state["tasks"] if t["id"] == tid)
+        self.assertEqual(task["status"], "validation")
+
+    def test_invalid_event_type_rejected(self):
+        state = server.default_state()
+        r, _ = server.create_task(state, {"title": "X"})
+        _, err = server.post_task_event(state, {"type": "explode", "task_id": r["task"]["id"], "agent_id": "codex"})
+        self.assertIsNotNone(err)
+        self.assertIn("invalid event type", err)
+
+    def test_event_requires_task_id(self):
+        state = server.default_state()
+        _, err = server.post_task_event(state, {"type": "started", "agent_id": "codex"})
+        self.assertIsNotNone(err)
+        self.assertIn("task_id", err)
+
+    def test_event_requires_agent_id(self):
+        state = server.default_state()
+        r, _ = server.create_task(state, {"title": "X"})
+        _, err = server.post_task_event(state, {"type": "started", "task_id": r["task"]["id"]})
+        self.assertIsNotNone(err)
+        self.assertIn("agent_id", err)
+
+    def test_event_adds_comment(self):
+        state = server.default_state()
+        tid = self._make_task(state, "ready")
+        server.post_task_event(state, {"type": "started", "task_id": tid, "agent_id": "codex", "note": "Starting now"})
+        task = next(t for t in state["tasks"] if t["id"] == tid)
+        self.assertTrue(any("Starting now" in c["text"] for c in task.get("comments", [])))
+
+    def test_event_returns_enriched_task(self):
+        state = server.default_state()
+        tid = self._make_task(state, "ready")
+        result, err = server.post_task_event(state, {"type": "started", "task_id": tid, "agent_id": "codex"})
+        self.assertIsNone(err)
+        self.assertIn("task", result)
+        self.assertIn("owner_name", result["task"])
+
+
+# ── v1.6.0: Task templates ────────────────────────────────────────────────────
+
+class TaskTemplatesTests(unittest.TestCase):
+
+    def test_templates_list_returned(self):
+        templates = server.TASK_TEMPLATES
+        self.assertIsInstance(templates, list)
+        self.assertGreaterEqual(len(templates), 6)
+
+    def test_each_template_has_required_fields(self):
+        for tpl in server.TASK_TEMPLATES:
+            for field in ("id", "name", "specialist", "type", "priority", "description",
+                          "definition_of_done", "acceptance_criteria"):
+                self.assertIn(field, tpl, f"template {tpl.get('id')} missing {field}")
+
+    def test_template_priorities_are_valid(self):
+        for tpl in server.TASK_TEMPLATES:
+            self.assertIn(tpl["priority"], server.TASK_PRIORITIES)
+
+    def test_template_specialists_are_valid(self):
+        for tpl in server.TASK_TEMPLATES:
+            self.assertIn(tpl["specialist"], server.SPECIALIST_CATALOG)
+
+    def test_template_ids_are_unique(self):
+        ids = [t["id"] for t in server.TASK_TEMPLATES]
+        self.assertEqual(len(ids), len(set(ids)))
+
+    def test_specific_templates_present(self):
+        ids = {t["id"] for t in server.TASK_TEMPLATES}
+        for expected in ("compliance-memo", "market-validation", "gtm-plan",
+                         "founder-decision", "research-brief", "software-feature"):
+            self.assertIn(expected, ids)
+
+
+# ── v1.6.0: Exception dashboard ──────────────────────────────────────────────
+
+class ExceptionDashboardTests(unittest.TestCase):
+
+    def test_blocked_task_appears_in_exception_dashboard(self):
+        state = server.default_state()
+        state["tasks"] = []
+        r, _ = server.create_task(state, {"title": "Blocked task"})
+        tid = r["task"]["id"]
+        server.update_task(state, {"id": tid, "blocked": True})
+        exc = server.build_exception_dashboard(state)
+        self.assertIn(tid, [e["task_id"] for e in exc["blocked"]])
+
+    def test_validation_task_appears_in_exception_dashboard(self):
+        state = server.default_state()
+        state["tasks"] = []
+        r, _ = server.create_task(state, {"title": "Val task"})
+        tid = r["task"]["id"]
+        server.update_task(state, {"id": tid, "status": "ready"})
+        server.update_task(state, {"id": tid, "status": "in_progress"})
+        server.update_task(state, {"id": tid, "status": "validation"})
+        exc = server.build_exception_dashboard(state)
+        self.assertIn(tid, [e["task_id"] for e in exc["validation"]])
+
+    def test_stale_task_detected(self):
+        from datetime import datetime, timedelta, timezone
+        state = server.default_state()
+        state["tasks"] = []
+        r, _ = server.create_task(state, {"title": "Old task"})
+        tid = r["task"]["id"]
+        task = next(t for t in state["tasks"] if t["id"] == tid)
+        task["updated_at"] = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
+        exc = server.build_exception_dashboard(state)
+        self.assertIn(tid, [e["task_id"] for e in exc["stale"]])
+
+    def test_done_task_excluded(self):
+        state = server.default_state()
+        state["tasks"] = []
+        r, _ = server.create_task(state, {"title": "Done task"})
+        tid = r["task"]["id"]
+        server.update_task(state, {"id": tid, "status": "ready"})
+        server.update_task(state, {"id": tid, "status": "in_progress"})
+        server.update_task(state, {"id": tid, "status": "validation"})
+        server.update_task(state, {"id": tid, "status": "done"})
+        task = next(t for t in state["tasks"] if t["id"] == tid)
+        self.assertEqual(task["status"], "done")
+        exc = server.build_exception_dashboard(state)
+        all_ids = ([e["task_id"] for e in exc["blocked"]] +
+                   [e["task_id"] for e in exc["validation"]] +
+                   [e["task_id"] for e in exc["stale"]] +
+                   [e["task_id"] for e in exc["overdue"]])
+        self.assertNotIn(tid, all_ids)
+
+    def test_counts_are_accurate(self):
+        state = server.default_state()
+        state["tasks"] = []
+        server.create_task(state, {"title": "B1"})
+        r1, _ = server.create_task(state, {"title": "B1-block"})
+        r2, _ = server.create_task(state, {"title": "B2-block"})
+        server.update_task(state, {"id": r1["task"]["id"], "blocked": True})
+        server.update_task(state, {"id": r2["task"]["id"], "blocked": True})
+        exc = server.build_exception_dashboard(state)
+        self.assertEqual(exc["counts"]["blocked"], 2)
+
+    def test_snapshot_includes_exception_dashboard(self):
+        state = server.default_state()
+        snap = server.snapshot_state(state)
+        self.assertIn("exception_dashboard", snap)
+        exc = snap["exception_dashboard"]
+        self.assertIn("counts", exc)
+        for bucket in ("blocked", "validation", "stale", "overdue"):
+            self.assertIn(bucket, exc)
+
+
+# ── v1.6.0: Unresolved blocker detection ─────────────────────────────────────
+
+class UnresolvedBlockerTests(unittest.TestCase):
+
+    def test_task_with_incomplete_dependency_has_unresolved_blocker(self):
+        state = server.default_state()
+        r1, _ = server.create_task(state, {"title": "Dep", "status": "backlog"})
+        tid1 = r1["task"]["id"]
+        r2, _ = server.create_task(state, {"title": "Dependent", "status": "backlog"})
+        tid2 = r2["task"]["id"]
+        server.update_task(state, {"id": tid2, "depends_on": [tid1]})
+        task_lookup = {t["id"]: t for t in state["tasks"]}
+        blocker = server.task_has_unresolved_blockers(
+            next(t for t in state["tasks"] if t["id"] == tid2),
+            task_lookup
+        )
+        self.assertTrue(blocker)
+
+    def test_task_with_done_dependency_has_no_blocker(self):
+        state = server.default_state()
+        r1, _ = server.create_task(state, {"title": "Done dep"})
+        tid1 = r1["task"]["id"]
+        server.update_task(state, {"id": tid1, "status": "ready"})
+        server.update_task(state, {"id": tid1, "status": "in_progress"})
+        server.update_task(state, {"id": tid1, "status": "validation"})
+        server.update_task(state, {"id": tid1, "status": "done"})
+        r2, _ = server.create_task(state, {
+            "title": "Unblocked", "status": "ready",
+            "depends_on": [tid1]
+        })
+        task_lookup = {t["id"]: t for t in state["tasks"]}
+        blocker = server.task_has_unresolved_blockers(
+            next(t for t in state["tasks"] if t["id"] == r2["task"]["id"]),
+            task_lookup
+        )
+        self.assertFalse(blocker)
+
+    def test_task_with_no_deps_has_no_blocker(self):
+        state = server.default_state()
+        r, _ = server.create_task(state, {"title": "Free task"})
+        task_lookup = {t["id"]: t for t in state["tasks"]}
+        blocker = server.task_has_unresolved_blockers(
+            next(t for t in state["tasks"] if t["id"] == r["task"]["id"]),
+            task_lookup
+        )
+        self.assertFalse(blocker)
+
+    def test_snapshot_enriches_tasks_with_has_unresolved_blockers(self):
+        state = server.default_state()
+        state["tasks"] = []
+        r1, _ = server.create_task(state, {"title": "Blocker dep", "status": "backlog"})
+        r2, _ = server.create_task(state, {"title": "Waiting", "status": "ready"})
+        tid2 = r2["task"]["id"]
+        server.update_task(state, {"id": tid2, "depends_on": [r1["task"]["id"]]})
+        snap = server.snapshot_state(state)
+        t2 = next(t for t in snap["tasks"] if t["id"] == tid2)
+        self.assertTrue(t2.get("has_unresolved_blockers"))
+
+    def test_snapshot_stale_field_on_old_task(self):
+        from datetime import datetime, timedelta, timezone
+        state = server.default_state()
+        state["tasks"] = []
+        r, _ = server.create_task(state, {"title": "Old"})
+        tid = r["task"]["id"]
+        task = next(t for t in state["tasks"] if t["id"] == tid)
+        task["updated_at"] = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
+        snap = server.snapshot_state(state)
+        t = next(t for t in snap["tasks"] if t["id"] == tid)
+        self.assertTrue(t.get("stale"))
+

@@ -1004,7 +1004,12 @@ tr:hover td{background:var(--bgh)}
         <button class="sbb p" onclick="openNewTaskForm()">+ New ticket</button>
       </div>
     </div>
+    <div style="display:flex;gap:6px;margin-top:12px;border-bottom:1px solid var(--bd);padding-bottom:8px">
+      <button class="pipe-tab on" id="PT_LIST" onclick="switchPipeTab('list',this)">List</button>
+      <button class="pipe-tab" id="PT_LANES" onclick="switchPipeTab('lanes',this)">Lanes</button>
+    </div>
     <div id="PIPE_TABLE" style="margin-top:12px"></div>
+    <div id="PIPE_LANES" style="margin-top:12px;display:none"></div>
   </div>
 </div>
 
@@ -1177,6 +1182,7 @@ const agentSprites={};
 let calView='week', calDate=new Date(TODAY);
 let curDay='Mon';
 let boardFilterProj='', boardFilterSpec='';
+let EXCEPTION_DATA = {};
 let editingMissionId=null;
 
 const META={dash:{s:'Command Center',p:'Dashboard'},team:{s:'Operate',p:'Team'},council:{s:'Operate',p:'Council'},cal:{s:'Operate',p:'Calendar'},board:{s:'Work',p:'Board'},pipeline:{s:'Work',p:'Pipeline'},approvals:{s:'Work',p:'Approvals'},miss:{s:'Work',p:'Missions'},conv:{s:'Work',p:'Conversations'},off:{s:'Observe',p:'Office'},acc:{s:'Observe',p:'Access'},req:{s:'Quality',p:'Requirements'},tc:{s:'Quality',p:'Test Cases'},app:{s:'Settings',p:'Appearance'}};
@@ -1284,16 +1290,45 @@ function buildDashboard(){
     <div class="met wn"><div class="met-v">${valq}</div><div class="met-l">Validation Q</div></div>
     <div class="met ac"><div class="met-v">${util.split('/')[0]||'13'}</div><div class="met-l">Active agents</div></div>`;
 
-  // Attention queue
+  // Attention queue — exception dashboard (4 buckets)
   const aql=document.getElementById('AQ_LIST');aql.innerHTML='';
-  const kindColor={blocked:'var(--dn)',routing_mismatch:'var(--wn)',validation:'var(--wn)',mission_risk:'var(--dn)',dependency_blocked:'var(--dn)',staffing_gap:'var(--pu)'};
-  (AQ_DATA||[]).forEach(item=>{
-    const d=mk('div','attn');
-    const dot=mk('div','attn-dot');dot.style.background=kindColor[item.kind]||'var(--mut)';
-    const info=mk('div','');
-    info.innerHTML=`<strong>${item.title}</strong><span>${item.owner||''} — ${item.detail||''}</span>`;
-    d.appendChild(dot);d.appendChild(info);aql.appendChild(d);
+  const exc=typeof EXCEPTION_DATA!=='undefined'?EXCEPTION_DATA:{};
+  const excBuckets=[
+    {key:'blocked',label:'Blocked',cls:'dn'},
+    {key:'validation',label:'Needs Approval',cls:'wn'},
+    {key:'stale',label:'Stale (3+ days)',cls:'mut'},
+    {key:'overdue',label:'Overdue',cls:'dn'},
+  ];
+  let excRendered=0;
+  excBuckets.forEach(b=>{
+    const items=(exc[b.key]||[]);
+    if(!items.length)return;
+    excRendered+=items.length;
+    const sec=mk('div','');sec.style.marginBottom='10px';
+    const lbl=mk('div','');lbl.style.cssText='font-size:.6rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:4px';
+    lbl.innerHTML=`${b.label} <span class="chip ${b.cls}" style="font-size:.55rem">${items.length}</span>`;
+    sec.appendChild(lbl);
+    items.slice(0,4).forEach(item=>{
+      const d=mk('div','attn');d.style.cursor='pointer';
+      const dot=mk('div','attn-dot');dot.style.background=`var(--${b.cls})`;
+      const info=mk('div','');
+      const extra=b.key==='stale'?` — ${item.days_stale}d stale`:(b.key==='validation'?` — reviewer: ${item.validation_owner||'?'}`:'');
+      info.innerHTML=`<strong>${item.title}</strong><span>${item.owner||''}${extra}</span>`;
+      d.onclick=()=>{const t=TASKS.find(x=>x.id===item.task_id);if(t)openTask(t);};
+      d.appendChild(dot);d.appendChild(info);sec.appendChild(d);
+    });
+    aql.appendChild(sec);
   });
+  if(!excRendered){
+    const kindColor={blocked:'var(--dn)',routing_mismatch:'var(--wn)',validation:'var(--wn)',mission_risk:'var(--dn)',dependency_blocked:'var(--dn)',staffing_gap:'var(--pu)'};
+    (AQ_DATA||[]).forEach(item=>{
+      const d=mk('div','attn');
+      const dot=mk('div','attn-dot');dot.style.background=kindColor[item.kind]||'var(--mut)';
+      const info=mk('div','');
+      info.innerHTML=`<strong>${item.title}</strong><span>${item.owner||''} — ${item.detail||''}</span>`;
+      d.appendChild(dot);d.appendChild(info);aql.appendChild(d);
+    });
+  }
 
   // Projects
   const pl=document.getElementById('PROJ_LIST');pl.innerHTML='';
@@ -2021,6 +2056,7 @@ function openTask(t){
       ${acItems.length?`<div><div class="mo-st">Acceptance Criteria</div><div class="mo-cb">${acItems.map(item=>`<div class="mo-ci"><div class="chk">${isDone?'✓':''}</div><span>${item}</span></div>`).join('')}</div></div>`:''}
       <div><div class="mo-st">Validation steps</div><div class="mo-cb">${vsteps.map(item=>{const d=isVal;return`<div class="mo-ci"><div class="chk ${d?'done':''}">${d?'✓':''}</div><span>${item}</span></div>`;}).join('')}</div></div>
       <div class="mo-div"></div>
+      ${(t.artifacts&&t.artifacts.length)?`<div class="mo-st">Artifacts</div><div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">${t.artifacts.map(a=>`<a href="${a.startsWith('http')?a:'#'}" target="${a.startsWith('http')?'_blank':'_self'}" class="chip" style="text-decoration:none;cursor:pointer;font-size:.68rem" title="${a}">${a.length>45?a.slice(0,43)+'…':a}</a>`).join('')}</div>`:''}
       <div>
         <div class="mo-st">Comments (${(t.comments||[]).length})</div>
         ${(t.comments||[]).map(c=>`<div style="background:rgba(94,232,210,.05);border:1px solid rgba(94,232,210,.12);border-radius:6px;padding:8px 10px;margin-bottom:6px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:.68rem;font-weight:700;color:var(--ac)">${c.author}</span><span style="font-size:.62rem;color:var(--mut)">${(c.timestamp||'').slice(0,16).replace('T',' ')}</span></div><div style="font-size:.76rem;color:var(--tx)">${c.text}</div></div>`).join('')}
@@ -2097,7 +2133,8 @@ function openNewTaskForm(){
   const mo=document.getElementById('MO');mo.style.display='flex';
   const mc=document.getElementById('MC');
   mc.innerHTML=`
-    <div class="mo-head"><span class="mo-title">New task ticket</span><button class="mo-x" onclick="closeMo()">×</button></div>
+    <div class="mo-head"><span class="mo-title">New task ticket</span><div style="display:flex;gap:8px;align-items:center"><button class="sbb" onclick="openTemplateChooser()" style="font-size:.6rem;padding:2px 8px">📋 Use template</button><button class="mo-x" onclick="closeMo()">×</button></div></div>
+    <div id="NT_AC_WARN" style="display:none;align-items:center;gap:6px;padding:5px 10px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:var(--rsm);font-size:.68rem;color:#f87171;margin:0 0 4px">⚠ Acceptance criteria recommended before advancing to ready or beyond</div>
     <div style="display:grid;gap:12px;padding:0 0 10px;max-height:75vh;overflow-y:auto">
       <div><label style="font-size:.68rem;color:var(--mut);display:block;margin-bottom:3px">Title *</label>
         <input id="NT_TITLE" class="ai" placeholder="What needs to be done?" style="width:100%"></div>
@@ -2154,6 +2191,9 @@ function openNewTaskForm(){
   (typeof missionsLocal!=='undefined'?missionsLocal:[]).forEach(m=>{const o=mk('option','');o.value=m.id;o.textContent=m.title;missSel.appendChild(o);});
   const sprintSel=document.getElementById('NT_SPRINT');
   (typeof SPRINTS!=='undefined'?SPRINTS:[]).forEach(s=>{const o=mk('option','');o.value=s.id;o.textContent=s.name||s.id;sprintSel.appendChild(o);});
+  const ntStatus=document.getElementById('NT_STATUS');
+  const ntWarn=document.getElementById('NT_AC_WARN');
+  if(ntStatus&&ntWarn){ntStatus.addEventListener('change',function(){const adv=['ready','in_progress','validation'].includes(this.value);const hasAC=(document.getElementById('NT_AC')?.value.trim().length||0)>0;ntWarn.style.display=(adv&&!hasAC)?'flex':'none';});}
 }
 
 async function submitNewTaskModal(){
@@ -2275,6 +2315,8 @@ function openTaskEdit(taskId){
         <div><label style="font-size:.68rem;color:var(--mut);display:block;margin-bottom:3px">Acceptance Criteria</label>
           <textarea id="TE_AC" class="ai" rows="3" style="width:100%;resize:vertical">${esc((t.acceptance_criteria||[]).join('\n'))}</textarea></div>
       </div>
+      <div><label style="font-size:.68rem;color:var(--mut);display:block;margin-bottom:3px">Artifacts <span style="font-weight:400">(one per line: file paths, URLs, doc names)</span></label>
+        <textarea id="TE_ARTIFACTS" class="ai" rows="2" placeholder="e.g. workspace/myproject/docs/spec.md&#10;https://docs.example.com" style="width:100%;resize:vertical">${esc((t.artifacts||[]).join('\n'))}</textarea></div>
       <button class="sbb p" onclick="submitTaskEdit('${t.id}')">Save changes</button>
     </div>`;
   const sel=document.getElementById('TE_OWNER');
@@ -2316,6 +2358,8 @@ function submitTaskEdit(id){
   t.definition_of_done=dod?dod.split('\n').map(s=>s.trim()).filter(Boolean):t.definition_of_done;
   const acText=document.getElementById('TE_AC')?.value.trim()||'';
   t.acceptance_criteria=acText?acText.split('\n').map(s=>s.trim()).filter(Boolean):t.acceptance_criteria;
+  const artText=document.getElementById('TE_ARTIFACTS')?.value.trim()||'';
+  t.artifacts=artText?artText.split('\n').map(s=>s.trim()).filter(Boolean):t.artifacts||[];
   apiPost('/api/tasks/update',{
     id, title:t.title, description:t.description, status:t.status,
     priority:t.priority, story_points:t.story_points, owner:ownerId,
@@ -2323,6 +2367,7 @@ function submitTaskEdit(id){
     mission_id:t.mission_id, sprint_id:t.sprint_id,
     validation_owner:t.validation_owner, labels:t.labels,
     definition_of_done:t.definition_of_done, acceptance_criteria:t.acceptance_criteria,
+    artifacts:t.artifacts,
   });
   closeMo();renderBoard();refreshCounters();
   if(document.getElementById('V_pipeline')&&document.getElementById('V_pipeline').classList.contains('on'))renderPipeline();
@@ -2362,6 +2407,35 @@ async function deleteTaskFromModal(taskId){
   if(idx>=0)TASKS.splice(idx,1);
   try{await apiPost('/api/tasks/delete',{task_id:taskId});}catch(e){}
   renderPipeline();renderBoard();refreshCounters();
+}
+
+// ── Task templates ────────────────────────────────────────────────────────────
+async function openTemplateChooser(){
+  let templates=[];
+  try{const res=await fetch('/api/tasks/templates',{headers:{'Authorization':'Bearer '+(typeof API_TOKEN!=='undefined'?API_TOKEN:'')}});if(res.ok)templates=(await res.json()).templates||[];}catch(_){}
+  if(!templates.length){alert('No templates available (server offline)');return;}
+  const mo=document.getElementById('MO');mo.style.display='flex';
+  const mc=document.getElementById('MC');
+  mc.innerHTML=`<div class="mo-head"><span class="mo-title">Choose a template</span><button class="mo-x" onclick="closeMo()">×</button></div><div style="display:grid;gap:8px;padding:0 0 10px">${templates.map((tpl,i)=>`<div style="padding:10px 12px;border:1px solid var(--bd);border-radius:var(--rsm);cursor:pointer;background:var(--bg3)" onclick="applyTemplate(${i})"><div style="font-weight:700;color:var(--txs);font-size:.8rem">${tpl.name}</div><div style="font-size:.68rem;color:var(--mut);margin-top:2px">${tpl.specialist} · ${tpl.type} · ${tpl.priority}</div></div>`).join('')}</div>`;
+  mc._tplCache=templates;
+}
+
+function applyTemplate(idx){
+  const mc=document.getElementById('MC');
+  const tpl=(mc._tplCache||[])[idx];if(!tpl)return;
+  closeMo();openNewTaskForm();
+  requestAnimationFrame(()=>{
+    const setVal=(id,val)=>{const el=document.getElementById(id);if(el&&val!=null)el.value=val;};
+    setVal('NT_DESC',tpl.description||'');
+    setVal('NT_PRI',tpl.priority||'P1');
+    setVal('NT_TYPE',tpl.type||'task');
+    const acEl=document.getElementById('NT_AC');
+    const dodEl=document.getElementById('NT_DOD');
+    const labEl=document.getElementById('NT_LABELS');
+    if(acEl&&tpl.acceptance_criteria)acEl.value=tpl.acceptance_criteria.join('\n');
+    if(dodEl&&tpl.definition_of_done)dodEl.value=tpl.definition_of_done.join('\n');
+    if(labEl&&tpl.labels)labEl.value=tpl.labels.join(', ');
+  });
 }
 // ── Mission planner ────────────────────────────────────────────────────────
 let missionsLocal=[...MISSIONS_DATA];
@@ -3143,7 +3217,7 @@ function renderPipeline(){
     tr.onclick=()=>openTask(t);
     tr.innerHTML=`
       <td style="padding:8px;color:var(--mut)">${t.id}</td>
-      <td style="padding:8px;color:var(--txs);font-weight:600">${t.title}</td>
+      <td style="padding:8px;color:var(--txs);font-weight:600">${t.title}${(t.blocked||t.has_unresolved_blockers)?'<span class="chip dn" style="font-size:.6rem;margin-left:6px;vertical-align:middle">blocked</span>':''}</td>
       <td style="padding:8px"><span class="badge ${sc}">${t.status}</span></td>
       <td style="padding:8px">${owner?owner.name:'—'}</td>
       <td style="padding:8px;color:var(--mut)">${t.project_name||'—'}</td>
@@ -3155,6 +3229,78 @@ function renderPipeline(){
   tbl.appendChild(tbody);
   el.appendChild(tbl);
   refreshCounters();
+}
+
+function switchPipeTab(tab, btn) {
+  document.querySelectorAll('.pipe-tab').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  const isList = tab === 'list';
+  const tableEl = document.getElementById('PIPE_TABLE');
+  const lanesEl = document.getElementById('PIPE_LANES');
+  const statusSel = document.getElementById('PIPE_STATUS');
+  if (tableEl) tableEl.style.display = isList ? '' : 'none';
+  if (lanesEl) lanesEl.style.display = isList ? 'none' : '';
+  if (statusSel) statusSel.style.display = isList ? '' : 'none';
+  if (!isList) renderLanes(); else renderPipeline();
+}
+
+function renderLanes() {
+  const el = document.getElementById('PIPE_LANES'); if (!el) return;
+  const projFilter = (document.getElementById('PIPE_PROJ') || {}).value || '';
+  const ownerFilter = '';
+  const agentIds = [...new Set(TASKS.map(t => t.owner || t.owner_id).filter(Boolean))];
+  el.innerHTML = '';
+  if (!agentIds.length) {
+    el.innerHTML = '<div style="padding:30px;text-align:center;color:var(--mut);font-size:.82rem">No agent task assignments yet.</div>';
+    return;
+  }
+  const grid = mk('div', '');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px';
+  agentIds.forEach(agId => {
+    const agent = AGENTS.find(a => a.id === agId); if (!agent) return;
+    let tasks = TASKS.filter(t => (t.owner || t.owner_id) === agId);
+    if (projFilter) tasks = tasks.filter(t => t.project_name === projFilter || t.project_id === projFilter);
+    const readyCount = tasks.filter(t => t.status === 'ready').length;
+    const inProgCount = tasks.filter(t => t.status === 'in_progress').length;
+    const blockedCount = tasks.filter(t => t.blocked || t.has_unresolved_blockers).length;
+    const validCount = tasks.filter(t => t.status === 'validation').length;
+    const health = blockedCount > 0 ? 'dn' : (validCount > 2 ? 'wn' : 'ok');
+    const healthLabel = blockedCount > 0 ? 'blocked' : (validCount > 2 ? 'busy' : 'healthy');
+    const card = mk('div', '');
+    card.style.cssText = 'padding:14px;border-radius:var(--rsm);background:var(--card);border:1px solid var(--bd)';
+    const faceEl = mkFaceAv(agent.id, 'sm');
+    const header = mk('div', '');
+    header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px';
+    const nameDiv = mk('div', '');
+    nameDiv.innerHTML = `<div style="font-weight:700;color:var(--txs);font-size:.82rem">${agent.name}</div><div style="font-size:.66rem;color:var(--mut)">${agent.role || ''}</div>`;
+    const healthChip = mk('span', 'chip ' + health);
+    healthChip.style.cssText = 'margin-left:auto;font-size:.6rem';
+    healthChip.textContent = healthLabel;
+    header.appendChild(faceEl); header.appendChild(nameDiv); header.appendChild(healthChip);
+    card.appendChild(header);
+    const chips = mk('div', '');
+    chips.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px';
+    chips.innerHTML = `<span class="chip in" title="Ready">${readyCount} ready</span><span class="chip ac" title="In Progress">${inProgCount} active</span>${blockedCount ? `<span class="chip dn">${blockedCount} blocked</span>` : ''}${validCount ? `<span class="chip wn">${validCount} in review</span>` : ''}`;
+    card.appendChild(chips);
+    const open = tasks.filter(t => t.status !== 'done').length;
+    const openDiv = mk('div', ''); openDiv.style.cssText = 'font-size:.72rem;color:var(--mut)';
+    openDiv.textContent = open + ' open tasks';
+    card.appendChild(openDiv);
+    const topTasks = tasks.filter(t => ['ready', 'in_progress'].includes(t.status)).slice(0, 3);
+    if (topTasks.length) {
+      const list = mk('div', ''); list.style.marginTop = '8px';
+      topTasks.forEach(t => {
+        const item = mk('div', '');
+        item.style.cssText = 'font-size:.7rem;padding:4px 0;border-top:1px solid var(--bd);cursor:pointer;color:var(--tx)';
+        item.textContent = (t.title || '').slice(0, 42) + (t.title && t.title.length > 42 ? '…' : '');
+        item.onclick = () => openTask(t);
+        list.appendChild(item);
+      });
+      card.appendChild(list);
+    }
+    grid.appendChild(card);
+  });
+  el.appendChild(grid);
 }
 
 function deleteTask(id){
@@ -3864,6 +4010,7 @@ function applySnapshot(snap) {
   if (snap.projects) { PROJECTS_DATA.length=0;  PROJECTS_DATA.push(...snap.projects); }
   if (snap.metrics)  { Object.assign(METRICS_DATA, snap.metrics); }
   if (snap.attention_queue) { AQ_DATA.length=0; AQ_DATA.push(...snap.attention_queue); }
+  if (snap.exception_dashboard) { Object.assign(EXCEPTION_DATA, snap.exception_dashboard); }
 
   // Keep local AGENTS array in sync (used by office & team views)
   AGENTS.length=0;

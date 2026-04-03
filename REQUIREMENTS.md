@@ -271,4 +271,92 @@ Each task maintains an `activity` list recording field-change events (status, ow
 - [x] No entry created when a field value does not actually change
 - [x] `author` defaults to `"ceo"` if not supplied in the update payload
 - [x] Task detail view shows activity log below comments, in chronological order
+
+## REQ-019: Next Eligible Task API
+
+**Priority:** P0 (Critical)
+**Status:** Implemented (v1.6.0)
+
+AI agents must be able to query ClawTasker for their next eligible task without human intervention.
+
+- `GET /api/tasks/next?owner={agent_id}` returns the highest-priority `ready` task assigned to the agent with no unresolved blockers
+- Optional `project` query parameter filters by project_id
+- Response includes full enriched task object or `null` with message "no eligible tasks"
+- Requires Bearer token authentication
+- Tasks are sorted by priority (P0→P3) then by oldest update first
+
+## REQ-020: Task Event Shorthand API
+
+**Priority:** P1 (High)
+**Status:** Implemented (v1.6.0)
+
+AI agents must be able to publish task lifecycle events without constructing full update payloads.
+
+- `POST /api/tasks/event` accepts `{type, task_id, agent_id, note?}`
+- Valid event types: `started` (→ in_progress), `blocked` (sets blocked flag), `done` (→ done), `needs-validation` (→ validation)
+- Automatically adds a comment to the task with the event note
+- Updates activity log
+- Requires Bearer token authentication
+
+## REQ-021: Task Templates
+
+**Priority:** P1 (High)
+**Status:** Implemented (v1.6.0)
+
+Users and AI agents must be able to access predefined task templates to reduce ambiguity and accelerate ticket creation.
+
+- `GET /api/tasks/templates` returns all available templates (no auth required)
+- Templates include: Compliance Memo, Market Validation, GTM Plan, Founder Decision, Research Brief, Software Feature
+- Each template pre-fills: description, priority, type, definition_of_done, acceptance_criteria, labels
+- GUI: "📋 Use template" button in task creation modal opens template chooser
+
+## REQ-022: Exception Dashboard
+
+**Priority:** P1 (High)
+**Status:** Implemented (v1.6.0)
+
+The CEO dashboard must surface actionable exceptions rather than raw task data.
+
+- Four exception buckets: Blocked, Needs Approval (validation), Stale (3+ days no update), Overdue
+- Accessible via `GET /api/snapshot` in `exception_dashboard` field
+- Each bucket contains up to 10 items with task_id, title, owner, status, priority
+- Stale tasks include `days_stale` count
+- Dashboard renders buckets with clickable items that open the task detail modal
+
+## REQ-023: Unresolved Blocker Detection
+
+**Priority:** P1 (High)
+**Status:** Implemented (v1.6.0)
+
+All task objects must expose whether they have unresolved blockers.
+
+- `has_unresolved_blockers: true/false` computed field on every task in snapshot
+- A blocker is unresolved if: a `depends_on` task is not `done`, or a `is-blocked-by` link points to a non-done task
+- Used by: `GET /api/tasks/next` (skips blocked tasks), Lane view (shows blocked badge), Pipeline list (shows blocked chip)
+- `stale: true/false` also computed: tasks with no status update in 3+ days
+
+## REQ-024: Per-Agent Lane View
+
+**Priority:** P1 (High)
+**Status:** Implemented (v1.6.0)
+
+The Pipeline tab must support a per-agent lane view showing queue health per agent.
+
+- "Lanes" sub-tab in Pipeline shows one card per agent with assigned tasks
+- Each card shows: ready count, active count, blocked count, in-review count, queue health badge (healthy/busy/blocked)
+- Top 3 ready/in-progress tasks listed per card, clickable to open task detail
+- "List" sub-tab retains the existing pipeline table view
+
+## REQ-025: Task Artifacts
+
+**Priority:** P2 (Medium)
+**Status:** Implemented (v1.6.0)
+
+Tasks must support linking to output artifacts (files, documents, URLs).
+
+- `artifacts` field: array of strings (file paths, URLs, doc names)
+- Editable via task edit form (one per line textarea)
+- Displayed in task detail modal as clickable chips
+- Included in `PATCH /api/tasks/update` payload
+- Returned in all task responses
 - [x] Migration adds `activity: []` to existing tasks without the field

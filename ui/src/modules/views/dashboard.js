@@ -13,16 +13,45 @@ function buildDashboard(){
     <div class="met wn"><div class="met-v">${valq}</div><div class="met-l">Validation Q</div></div>
     <div class="met ac"><div class="met-v">${util.split('/')[0]||'13'}</div><div class="met-l">Active agents</div></div>`;
 
-  // Attention queue
+  // Attention queue — exception dashboard (4 buckets)
   const aql=document.getElementById('AQ_LIST');aql.innerHTML='';
-  const kindColor={blocked:'var(--dn)',routing_mismatch:'var(--wn)',validation:'var(--wn)',mission_risk:'var(--dn)',dependency_blocked:'var(--dn)',staffing_gap:'var(--pu)'};
-  (AQ_DATA||[]).forEach(item=>{
-    const d=mk('div','attn');
-    const dot=mk('div','attn-dot');dot.style.background=kindColor[item.kind]||'var(--mut)';
-    const info=mk('div','');
-    info.innerHTML=`<strong>${item.title}</strong><span>${item.owner||''} — ${item.detail||''}</span>`;
-    d.appendChild(dot);d.appendChild(info);aql.appendChild(d);
+  const exc=typeof EXCEPTION_DATA!=='undefined'?EXCEPTION_DATA:{};
+  const excBuckets=[
+    {key:'blocked',label:'Blocked',cls:'dn'},
+    {key:'validation',label:'Needs Approval',cls:'wn'},
+    {key:'stale',label:'Stale (3+ days)',cls:'mut'},
+    {key:'overdue',label:'Overdue',cls:'dn'},
+  ];
+  let excRendered=0;
+  excBuckets.forEach(b=>{
+    const items=(exc[b.key]||[]);
+    if(!items.length)return;
+    excRendered+=items.length;
+    const sec=mk('div','');sec.style.marginBottom='10px';
+    const lbl=mk('div','');lbl.style.cssText='font-size:.6rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:4px';
+    lbl.innerHTML=`${b.label} <span class="chip ${b.cls}" style="font-size:.55rem">${items.length}</span>`;
+    sec.appendChild(lbl);
+    items.slice(0,4).forEach(item=>{
+      const d=mk('div','attn');d.style.cursor='pointer';
+      const dot=mk('div','attn-dot');dot.style.background=`var(--${b.cls})`;
+      const info=mk('div','');
+      const extra=b.key==='stale'?` — ${item.days_stale}d stale`:(b.key==='validation'?` — reviewer: ${item.validation_owner||'?'}`:'');
+      info.innerHTML=`<strong>${item.title}</strong><span>${item.owner||''}${extra}</span>`;
+      d.onclick=()=>{const t=TASKS.find(x=>x.id===item.task_id);if(t)openTask(t);};
+      d.appendChild(dot);d.appendChild(info);sec.appendChild(d);
+    });
+    aql.appendChild(sec);
   });
+  if(!excRendered){
+    const kindColor={blocked:'var(--dn)',routing_mismatch:'var(--wn)',validation:'var(--wn)',mission_risk:'var(--dn)',dependency_blocked:'var(--dn)',staffing_gap:'var(--pu)'};
+    (AQ_DATA||[]).forEach(item=>{
+      const d=mk('div','attn');
+      const dot=mk('div','attn-dot');dot.style.background=kindColor[item.kind]||'var(--mut)';
+      const info=mk('div','');
+      info.innerHTML=`<strong>${item.title}</strong><span>${item.owner||''} — ${item.detail||''}</span>`;
+      d.appendChild(dot);d.appendChild(info);aql.appendChild(d);
+    });
+  }
 
   // Projects
   const pl=document.getElementById('PROJ_LIST');pl.innerHTML='';

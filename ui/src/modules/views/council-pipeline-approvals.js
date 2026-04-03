@@ -107,7 +107,7 @@ function renderPipeline(){
     tr.onclick=()=>openTask(t);
     tr.innerHTML=`
       <td style="padding:8px;color:var(--mut)">${t.id}</td>
-      <td style="padding:8px;color:var(--txs);font-weight:600">${t.title}</td>
+      <td style="padding:8px;color:var(--txs);font-weight:600">${t.title}${(t.blocked||t.has_unresolved_blockers)?'<span class="chip dn" style="font-size:.6rem;margin-left:6px;vertical-align:middle">blocked</span>':''}</td>
       <td style="padding:8px"><span class="badge ${sc}">${t.status}</span></td>
       <td style="padding:8px">${owner?owner.name:'—'}</td>
       <td style="padding:8px;color:var(--mut)">${t.project_name||'—'}</td>
@@ -119,6 +119,78 @@ function renderPipeline(){
   tbl.appendChild(tbody);
   el.appendChild(tbl);
   refreshCounters();
+}
+
+function switchPipeTab(tab, btn) {
+  document.querySelectorAll('.pipe-tab').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  const isList = tab === 'list';
+  const tableEl = document.getElementById('PIPE_TABLE');
+  const lanesEl = document.getElementById('PIPE_LANES');
+  const statusSel = document.getElementById('PIPE_STATUS');
+  if (tableEl) tableEl.style.display = isList ? '' : 'none';
+  if (lanesEl) lanesEl.style.display = isList ? 'none' : '';
+  if (statusSel) statusSel.style.display = isList ? '' : 'none';
+  if (!isList) renderLanes(); else renderPipeline();
+}
+
+function renderLanes() {
+  const el = document.getElementById('PIPE_LANES'); if (!el) return;
+  const projFilter = (document.getElementById('PIPE_PROJ') || {}).value || '';
+  const ownerFilter = '';
+  const agentIds = [...new Set(TASKS.map(t => t.owner || t.owner_id).filter(Boolean))];
+  el.innerHTML = '';
+  if (!agentIds.length) {
+    el.innerHTML = '<div style="padding:30px;text-align:center;color:var(--mut);font-size:.82rem">No agent task assignments yet.</div>';
+    return;
+  }
+  const grid = mk('div', '');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px';
+  agentIds.forEach(agId => {
+    const agent = AGENTS.find(a => a.id === agId); if (!agent) return;
+    let tasks = TASKS.filter(t => (t.owner || t.owner_id) === agId);
+    if (projFilter) tasks = tasks.filter(t => t.project_name === projFilter || t.project_id === projFilter);
+    const readyCount = tasks.filter(t => t.status === 'ready').length;
+    const inProgCount = tasks.filter(t => t.status === 'in_progress').length;
+    const blockedCount = tasks.filter(t => t.blocked || t.has_unresolved_blockers).length;
+    const validCount = tasks.filter(t => t.status === 'validation').length;
+    const health = blockedCount > 0 ? 'dn' : (validCount > 2 ? 'wn' : 'ok');
+    const healthLabel = blockedCount > 0 ? 'blocked' : (validCount > 2 ? 'busy' : 'healthy');
+    const card = mk('div', '');
+    card.style.cssText = 'padding:14px;border-radius:var(--rsm);background:var(--card);border:1px solid var(--bd)';
+    const faceEl = mkFaceAv(agent.id, 'sm');
+    const header = mk('div', '');
+    header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px';
+    const nameDiv = mk('div', '');
+    nameDiv.innerHTML = `<div style="font-weight:700;color:var(--txs);font-size:.82rem">${agent.name}</div><div style="font-size:.66rem;color:var(--mut)">${agent.role || ''}</div>`;
+    const healthChip = mk('span', 'chip ' + health);
+    healthChip.style.cssText = 'margin-left:auto;font-size:.6rem';
+    healthChip.textContent = healthLabel;
+    header.appendChild(faceEl); header.appendChild(nameDiv); header.appendChild(healthChip);
+    card.appendChild(header);
+    const chips = mk('div', '');
+    chips.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px';
+    chips.innerHTML = `<span class="chip in" title="Ready">${readyCount} ready</span><span class="chip ac" title="In Progress">${inProgCount} active</span>${blockedCount ? `<span class="chip dn">${blockedCount} blocked</span>` : ''}${validCount ? `<span class="chip wn">${validCount} in review</span>` : ''}`;
+    card.appendChild(chips);
+    const open = tasks.filter(t => t.status !== 'done').length;
+    const openDiv = mk('div', ''); openDiv.style.cssText = 'font-size:.72rem;color:var(--mut)';
+    openDiv.textContent = open + ' open tasks';
+    card.appendChild(openDiv);
+    const topTasks = tasks.filter(t => ['ready', 'in_progress'].includes(t.status)).slice(0, 3);
+    if (topTasks.length) {
+      const list = mk('div', ''); list.style.marginTop = '8px';
+      topTasks.forEach(t => {
+        const item = mk('div', '');
+        item.style.cssText = 'font-size:.7rem;padding:4px 0;border-top:1px solid var(--bd);cursor:pointer;color:var(--tx)';
+        item.textContent = (t.title || '').slice(0, 42) + (t.title && t.title.length > 42 ? '…' : '');
+        item.onclick = () => openTask(t);
+        list.appendChild(item);
+      });
+      card.appendChild(list);
+    }
+    grid.appendChild(card);
+  });
+  el.appendChild(grid);
 }
 
 function deleteTask(id){

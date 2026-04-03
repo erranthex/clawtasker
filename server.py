@@ -20,7 +20,7 @@ from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 ROOT = Path(__file__).resolve().parent
 WEB_DIR = ROOT / 'ui' / 'dist'
@@ -75,6 +75,74 @@ MISSION_STATUS_SORT_ORDER = {"blocked": 0, "active": 1, "planned": 2, "draft": 3
 WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 STATUS_SORT_ORDER = {"backlog": 0, "ready": 1, "in_progress": 2, "validation": 3, "done": 4}
 PRIORITY_SORT_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
+TASK_TEMPLATES = [
+    {
+        "id": "compliance-memo",
+        "name": "Compliance Memo",
+        "specialist": "docs",
+        "type": "task",
+        "priority": "P1",
+        "description": "Draft a compliance memo documenting regulatory requirements and action items.",
+        "definition_of_done": ["Memo drafted", "Legal review complete", "Filed in shared docs"],
+        "acceptance_criteria": ["All regulatory items listed", "Reviewed by relevant stakeholders"],
+        "labels": ["compliance", "legal"],
+    },
+    {
+        "id": "market-validation",
+        "name": "Market Validation",
+        "specialist": "research",
+        "type": "spike",
+        "priority": "P1",
+        "description": "Validate market assumptions with customer interviews and desk research.",
+        "definition_of_done": ["5+ interviews completed", "Research brief published"],
+        "acceptance_criteria": ["Key assumptions validated or invalidated", "Brief reviewed by CEO"],
+        "labels": ["research", "market"],
+    },
+    {
+        "id": "gtm-plan",
+        "name": "GTM Plan",
+        "specialist": "distribution",
+        "type": "story",
+        "priority": "P1",
+        "description": "Create a go-to-market plan covering channels, messaging, and launch timeline.",
+        "definition_of_done": ["Channel strategy defined", "Launch timeline agreed", "Brief shared with team"],
+        "acceptance_criteria": ["All launch channels identified", "Timeline approved by CEO"],
+        "labels": ["gtm", "launch"],
+    },
+    {
+        "id": "founder-decision",
+        "name": "Founder Decision",
+        "specialist": "planning",
+        "type": "task",
+        "priority": "P0",
+        "description": "Document a high-stakes founder decision with rationale and next steps.",
+        "definition_of_done": ["Decision recorded", "Rationale documented", "Next steps assigned"],
+        "acceptance_criteria": ["Rationale is clear", "Next steps are actionable"],
+        "labels": ["decision", "strategic"],
+    },
+    {
+        "id": "research-brief",
+        "name": "Research Brief",
+        "specialist": "research",
+        "type": "spike",
+        "priority": "P2",
+        "description": "Compile a structured research brief on a given topic with signal summary and recommendations.",
+        "definition_of_done": ["Research complete", "Brief written", "Recommendations listed"],
+        "acceptance_criteria": ["Covers at least 3 sources", "Includes a recommendation section"],
+        "labels": ["research", "intelligence"],
+    },
+    {
+        "id": "software-feature",
+        "name": "Software Feature",
+        "specialist": "code",
+        "type": "story",
+        "priority": "P1",
+        "description": "Implement a new software feature with tests and documentation.",
+        "definition_of_done": ["Implementation complete", "Unit tests passing", "Docs updated", "PR merged"],
+        "acceptance_criteria": ["Feature works as described", "No regressions", "Reviewed and approved"],
+        "labels": ["feature", "engineering"],
+    },
+]
 ACTIVE_TASK_STATUSES = {"in_progress", "validation"}
 ALLOWED_STATUS_TRANSITIONS = {
     "backlog": {"backlog", "ready"},
@@ -2878,6 +2946,86 @@ def build_filter_options(state: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def task_has_unresolved_blockers(task: Dict, task_lookup: Dict) -> bool:
+    """Return True if task has depends_on or is-blocked-by links pointing to non-done tasks."""
+    for dep_id in task.get("depends_on") or []:
+        dep = task_lookup.get(dep_id)
+        if dep and dep.get("status") != "done":
+            return True
+    for link in task.get("links") or []:
+        if link.get("type") == "is-blocked-by":
+            blocker = task_lookup.get(link.get("target_id"))
+            if blocker and blocker.get("status") != "done":
+                return True
+    return False
+
+
+STALE_TASK_DAYS = 3
+
+
+def build_exception_dashboard(state: Dict[str, Any]) -> Dict[str, Any]:
+    """Build the four-bucket exception dashboard for the CEO attention view."""
+    now = utc_now()
+    stale_cutoff = now - timedelta(days=STALE_TASK_DAYS)
+    roster = {a["id"]: a for a in state.get("agents", [])}
+
+    blocked_tasks: List[Dict] = []
+    validation_tasks: List[Dict] = []
+    stale_tasks: List[Dict] = []
+    overdue_tasks: List[Dict] = []
+
+    for task in state.get("tasks", []):
+        if task.get("status") == "done":
+            continue
+        owner_agent = roster.get(task.get("owner"))
+        entry = {
+            "task_id": task["id"],
+            "title": task["title"],
+            "owner": owner_agent["name"] if owner_agent else task.get("owner", "Unassigned"),
+            "project_id": task.get("project_id"),
+            "status": task.get("status"),
+            "priority": task.get("priority"),
+            "updated_at": task.get("updated_at"),
+        }
+
+        if task.get("blocked"):
+            blocked_tasks.append(entry)
+
+        if task.get("status") == "validation":
+            validation_tasks.append({**entry, "validation_owner": task.get("validation_owner")})
+
+        try:
+            updated = datetime.fromisoformat(task.get("updated_at") or iso_now())
+            if updated.tzinfo is None:
+                updated = updated.replace(tzinfo=timezone.utc)
+            if updated < stale_cutoff:
+                stale_tasks.append({**entry, "days_stale": (now - updated).days})
+        except Exception:
+            pass
+
+        try:
+            due_str = task.get("due_date")
+            if due_str:
+                due = datetime.fromisoformat(due_str + "T23:59:59+00:00")
+                if due < now and task.get("status") not in {"done", "backlog"}:
+                    overdue_tasks.append(entry)
+        except Exception:
+            pass
+
+    return {
+        "blocked": blocked_tasks[:10],
+        "validation": validation_tasks[:10],
+        "stale": stale_tasks[:10],
+        "overdue": overdue_tasks[:10],
+        "counts": {
+            "blocked": len(blocked_tasks),
+            "validation": len(validation_tasks),
+            "stale": len(stale_tasks),
+            "overdue": len(overdue_tasks),
+        },
+    }
+
+
 def snapshot_state(state: Dict[str, Any]) -> Dict[str, Any]:
     snap = copy.deepcopy(state)
     snap["tasks"] = ordered_tasks(snap.get("tasks", []))
@@ -2952,6 +3100,19 @@ def snapshot_state(state: Dict[str, Any]) -> Dict[str, Any]:
     for t in snap.get("tasks", []):
         t["blocking"] = blocking_map.get(t["id"], [])
 
+    # v1.5.x: Unresolved blocker detection
+    snap_task_lookup = {t["id"]: t for t in snap["tasks"]}
+    stale_cutoff_snap = utc_now() - timedelta(days=STALE_TASK_DAYS)
+    for t in snap["tasks"]:
+        t["has_unresolved_blockers"] = task_has_unresolved_blockers(t, snap_task_lookup)
+        try:
+            upd = datetime.fromisoformat(t.get("updated_at") or iso_now())
+            if upd.tzinfo is None:
+                upd = upd.replace(tzinfo=timezone.utc)
+            t["stale"] = upd < stale_cutoff_snap and t.get("status") != "done"
+        except Exception:
+            t["stale"] = False
+
     # v1.0.5: Workload per agent
     snap["agent_workload"] = _compute_workload(snap)
     wl = snap["agent_workload"]
@@ -2978,6 +3139,9 @@ def snapshot_state(state: Dict[str, Any]) -> Dict[str, Any]:
             "pct_complete":     round(done_pts / total_pts * 100) if total_pts else 0,
             "status":           sp.get("status"),
         }
+
+    # v1.5.x: Exception dashboard
+    snap["exception_dashboard"] = build_exception_dashboard(snap)
 
     # v1.0.5: Notifications (unread count)
     snap["notifications"] = snap.get("notifications") or []
@@ -4058,6 +4222,24 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
             schema = json.loads((SCHEMA_DIR / "mission_plan.schema.json").read_text(encoding="utf-8"))
             send_json(self, HTTPStatus.OK, schema)
             return
+        if parsed.path == "/api/tasks/next":
+            auth_header = self.headers.get("Authorization", "")
+            if auth_header != f"Bearer {API_TOKEN}":
+                send_json(self, HTTPStatus.UNAUTHORIZED, {"error": "Unauthorized"})
+                return
+            qs = parse_qs(parsed.query)
+            params = {k: v[0] for k, v in qs.items()}
+            with STATE_LOCK:
+                state = load_state()
+                result, error = get_next_task(state, params)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+            else:
+                send_json(self, HTTPStatus.OK, result)
+            return
+        if parsed.path == "/api/tasks/templates":
+            send_json(self, HTTPStatus.OK, {"ok": True, "templates": TASK_TEMPLATES})
+            return
         if parsed.path == "/api/openclaw/contract":
             with STATE_LOCK:
                 payload = openclaw_publish_contract(load_state())
@@ -4194,6 +4376,16 @@ class ClawTaskerHandler(SimpleHTTPRequestHandler):
                 send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
             else:
                 send_json(self, HTTPStatus.OK, result)
+            return
+
+        if parsed.path == "/api/tasks/event":
+            with STATE_LOCK:
+                state = load_state()
+                result, error = post_task_event(state, payload)
+            if error:
+                send_json(self, HTTPStatus.BAD_REQUEST, {"error": error})
+                return
+            send_json(self, HTTPStatus.OK, result)
             return
 
         if parsed.path == "/api/missions/delete":
@@ -5250,6 +5442,81 @@ def add_task_comment(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Option
     add_event(state, "task_note", f"{task_id}: comment by {author}", author, text[:80], task.get("project_id"))
     save_state(state)
     return {"ok": True, "comment": comment, "task_id": task_id}, None
+
+
+def get_next_task(state: Dict, params: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """Return the highest-priority eligible task for an agent (status=ready, no unresolved blockers)."""
+    owner = normalize_text(params.get("owner"), 32)
+    if not owner:
+        return None, "owner is required"
+    actor_ids = known_actor_ids(state)
+    if owner not in actor_ids:
+        return None, f"unknown owner: {owner}"
+    project_filter = normalize_text(params.get("project"), 32)
+
+    task_lookup = {t["id"]: t for t in state.get("tasks", [])}
+    candidates = [
+        t for t in state.get("tasks", [])
+        if t.get("owner") == owner
+        and t.get("status") == "ready"
+        and not task_has_unresolved_blockers(t, task_lookup)
+        and (not project_filter or t.get("project_id") == project_filter)
+    ]
+    candidates.sort(key=lambda t: (
+        PRIORITY_SORT_ORDER.get(t.get("priority", "P3"), 3),
+        t.get("updated_at", ""),
+    ))
+    if not candidates:
+        return {"ok": True, "task": None, "message": "no eligible tasks"}, None
+    snap = snapshot_state(state)
+    task_out = next((t for t in snap["tasks"] if t["id"] == candidates[0]["id"]), candidates[0])
+    return {"ok": True, "task": task_out}, None
+
+
+EVENT_TYPE_TO_STATUS = {
+    "started": "in_progress",
+    "done": "done",
+    "needs-validation": "validation",
+}
+
+
+def post_task_event(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:
+    """Shorthand event publisher: type in {started,blocked,done,needs-validation}."""
+    event_type = normalize_text(payload.get("type"), 32)
+    task_id = normalize_text(payload.get("task_id"), 32)
+    agent_id = normalize_text(payload.get("agent_id"), 32)
+    note = normalize_text(payload.get("note"), 500)
+
+    valid_types = set(EVENT_TYPE_TO_STATUS) | {"blocked"}
+    if event_type not in valid_types:
+        return None, f"invalid event type: {event_type!r}. Valid: {', '.join(sorted(valid_types))}"
+    if not task_id:
+        return None, "task_id is required"
+    if not agent_id:
+        return None, "agent_id is required"
+
+    task = next((t for t in state.get("tasks", []) if t["id"] == task_id), None)
+    if not task:
+        return None, f"unknown task: {task_id}"
+
+    update_payload: Dict[str, Any] = {"id": task_id, "author": agent_id}
+    if event_type == "blocked":
+        update_payload["blocked"] = True
+    else:
+        update_payload["status"] = EVENT_TYPE_TO_STATUS[event_type]
+
+    _task, err = update_task(state, update_payload, emit_event=True)
+    if err:
+        return None, err
+
+    comment_text = note or {"started": "Task started", "blocked": "Task blocked",
+                             "done": "Task marked done", "needs-validation": "Task sent to validation"}[event_type]
+    comment_payload = {"task_id": task_id, "text": comment_text, "author": agent_id}
+    add_task_comment(state, comment_payload)
+
+    snap = snapshot_state(state)
+    task_out = next((t for t in snap["tasks"] if t["id"] == task_id), task)
+    return {"ok": True, "task": task_out, "event_type": event_type}, None
 
 
 def delete_mission(state: Dict, payload: Dict) -> Tuple[Optional[Dict], Optional[str]]:
