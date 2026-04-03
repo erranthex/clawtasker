@@ -10,6 +10,7 @@ function applySnapshot(snap) {
   if (snap.projects) { PROJECTS_DATA.length=0;  PROJECTS_DATA.push(...snap.projects); }
   if (snap.metrics)  { Object.assign(METRICS_DATA, snap.metrics); }
   if (snap.attention_queue) { AQ_DATA.length=0; AQ_DATA.push(...snap.attention_queue); }
+  if (snap.exception_dashboard) { Object.assign(EXCEPTION_DATA, snap.exception_dashboard); }
 
   // Keep local AGENTS array in sync (used by office & team views)
   AGENTS.length=0;

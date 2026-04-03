@@ -456,7 +456,12 @@
         <button class="sbb p" onclick="openNewTaskForm()">+ New ticket</button>
       </div>
     </div>
+    <div style="display:flex;gap:6px;margin-top:12px;border-bottom:1px solid var(--bd);padding-bottom:8px">
+      <button class="pipe-tab on" id="PT_LIST" onclick="switchPipeTab('list',this)">List</button>
+      <button class="pipe-tab" id="PT_LANES" onclick="switchPipeTab('lanes',this)">Lanes</button>
+    </div>
     <div id="PIPE_TABLE" style="margin-top:12px"></div>
+    <div id="PIPE_LANES" style="margin-top:12px;display:none"></div>
   </div>
 </div>
 

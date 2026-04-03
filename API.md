@@ -923,6 +923,136 @@ All schemas: GET /api/schema/task  |  /api/schema/agent-register  |  /api/schema
 
 ---
 
+## GET /api/tasks/next
+
+Returns the highest-priority eligible task for a given agent.
+
+**Auth:** Bearer token required
+
+**Query parameters:**
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `owner` | Yes | Agent ID to fetch next task for |
+| `project` | No | Filter by project_id |
+
+**Response:**
+```json
+{
+  "ok": true,
+  "task": { /* full enriched task object */ },
+  "message": "no eligible tasks"   // only when task is null
+}
+```
+
+**Eligibility rules:**
+- `status == "ready"`
+- `owner` matches the given agent ID
+- No unresolved blockers (`has_unresolved_blockers == false`)
+- Sorted: P0 > P1 > P2 > P3, then oldest update first
+
+**Example (agent):**
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:3000/api/tasks/next?owner=codex"
+```
+
+---
+
+## POST /api/tasks/event
+
+Shorthand task lifecycle event publisher. Updates task status, adds a comment, and records activity in one call.
+
+**Auth:** Bearer token required
+
+**Body:**
+```json
+{
+  "type": "started",
+  "task_id": "T-042",
+  "agent_id": "codex",
+  "note": "Beginning implementation of auth module"
+}
+```
+
+| Field | Required | Values |
+|-------|----------|--------|
+| `type` | Yes | `started`, `blocked`, `done`, `needs-validation` |
+| `task_id` | Yes | Task ID string |
+| `agent_id` | Yes | Agent ID string |
+| `note` | No | Optional text for the auto-created comment |
+
+**Status transitions:**
+| Event type | Status result |
+|------------|---------------|
+| `started` | `in_progress` |
+| `blocked` | (unchanged, sets `blocked: true`) |
+| `done` | `done` |
+| `needs-validation` | `validation` |
+
+**Response:**
+```json
+{
+  "ok": true,
+  "task": { /* full enriched task */ },
+  "event_type": "started"
+}
+```
+
+**Example (agent operating loop):**
+```python
+import requests
+
+headers = {"Authorization": f"Bearer {TOKEN}"}
+base = "http://localhost:3000"
+
+# 1. Get next task
+task = requests.get(f"{base}/api/tasks/next?owner=codex", headers=headers).json()["task"]
+
+# 2. Claim it
+requests.post(f"{base}/api/tasks/event", json={
+    "type": "started", "task_id": task["id"], "agent_id": "codex",
+    "note": "Starting work on this task"
+}, headers=headers)
+
+# 3. Do the work...
+
+# 4. Send to validation
+requests.post(f"{base}/api/tasks/event", json={
+    "type": "needs-validation", "task_id": task["id"], "agent_id": "codex",
+    "note": "Implementation complete. Output: workspace/myproject/src/auth.py"
+}, headers=headers)
+```
+
+---
+
+## GET /api/tasks/templates
+
+Returns all predefined task templates. No authentication required.
+
+**Response:**
+```json
+{
+  "ok": true,
+  "templates": [
+    {
+      "id": "software-feature",
+      "name": "Software Feature",
+      "specialist": "code",
+      "type": "story",
+      "priority": "P1",
+      "description": "Implement a new software feature...",
+      "definition_of_done": ["Implementation complete", "Unit tests passing", "Docs updated", "PR merged"],
+      "acceptance_criteria": ["Feature works as described", "No regressions", "Reviewed and approved"],
+      "labels": ["feature", "engineering"]
+    }
+  ]
+}
+```
+
+Available templates: `compliance-memo`, `market-validation`, `gtm-plan`, `founder-decision`, `research-brief`, `software-feature`
+
+---
+
 ## Dual-User Interaction Model
 
 ```

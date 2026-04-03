@@ -1,5 +1,28 @@
 # ClawTasker CEO Console — Changelog
 
+## v1.6.0 — Autonomous Execution Layer (2026-04-03)
+
+### New API Endpoints
+- `GET /api/tasks/next?owner={agent_id}[&project={id}]` — returns next eligible task for an agent (ready, unblocked, highest priority). Bearer auth required.
+- `POST /api/tasks/event` — shorthand event publisher: `{type, task_id, agent_id, note?}`. Types: `started`, `blocked`, `done`, `needs-validation`. Adds comment + updates status in one call.
+- `GET /api/tasks/templates` — returns 6 predefined task templates (no auth required).
+
+### New Snapshot Fields
+- `exception_dashboard` — four-bucket CEO exception view: blocked, validation, stale (3+ days), overdue. Available on every `GET /api/snapshot`.
+- `has_unresolved_blockers` (per task) — true if depends_on or is-blocked-by links point to non-done tasks.
+- `stale` (per task) — true if no status update in 3+ days.
+
+### GUI Improvements
+- **Pipeline → Lanes sub-view**: per-agent queue health cards showing ready/active/blocked counts and top tasks
+- **Pipeline → List view**: blocked badge on tasks with unresolved blockers
+- **Dashboard attention queue**: replaced with 4-bucket exception dashboard (blocked, needs approval, stale, overdue) — clickable items open task detail
+- **Task creation**: "📋 Use template" button opens template chooser; AC warning banner when advancing status without acceptance criteria
+- **Task edit**: Artifacts field (one per line) for linking output files, docs, and URLs
+- **Task detail**: Artifacts displayed as clickable chips
+
+### Agent Onboarding
+- See `docs/AGENT_API_GUIDE.md` for the updated agent operating loop
+
 ## vNext — Task Field Completeness + Linked Issues + Activity Log (2026-03-27)
 
 ### Added

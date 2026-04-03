@@ -66,6 +66,7 @@ function openTask(t){
       ${acItems.length?`<div><div class="mo-st">Acceptance Criteria</div><div class="mo-cb">${acItems.map(item=>`<div class="mo-ci"><div class="chk">${isDone?'✓':''}</div><span>${item}</span></div>`).join('')}</div></div>`:''}
       <div><div class="mo-st">Validation steps</div><div class="mo-cb">${vsteps.map(item=>{const d=isVal;return`<div class="mo-ci"><div class="chk ${d?'done':''}">${d?'✓':''}</div><span>${item}</span></div>`;}).join('')}</div></div>
       <div class="mo-div"></div>
+      ${(t.artifacts&&t.artifacts.length)?`<div class="mo-st">Artifacts</div><div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">${t.artifacts.map(a=>`<a href="${a.startsWith('http')?a:'#'}" target="${a.startsWith('http')?'_blank':'_self'}" class="chip" style="text-decoration:none;cursor:pointer;font-size:.68rem" title="${a}">${a.length>45?a.slice(0,43)+'…':a}</a>`).join('')}</div>`:''}
       <div>
         <div class="mo-st">Comments (${(t.comments||[]).length})</div>
         ${(t.comments||[]).map(c=>`<div style="background:rgba(94,232,210,.05);border:1px solid rgba(94,232,210,.12);border-radius:6px;padding:8px 10px;margin-bottom:6px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:.68rem;font-weight:700;color:var(--ac)">${c.author}</span><span style="font-size:.62rem;color:var(--mut)">${(c.timestamp||'').slice(0,16).replace('T',' ')}</span></div><div style="font-size:.76rem;color:var(--tx)">${c.text}</div></div>`).join('')}
@@ -142,7 +143,8 @@ function openNewTaskForm(){
   const mo=document.getElementById('MO');mo.style.display='flex';
   const mc=document.getElementById('MC');
   mc.innerHTML=`
-    <div class="mo-head"><span class="mo-title">New task ticket</span><button class="mo-x" onclick="closeMo()">×</button></div>
+    <div class="mo-head"><span class="mo-title">New task ticket</span><div style="display:flex;gap:8px;align-items:center"><button class="sbb" onclick="openTemplateChooser()" style="font-size:.6rem;padding:2px 8px">📋 Use template</button><button class="mo-x" onclick="closeMo()">×</button></div></div>
+    <div id="NT_AC_WARN" style="display:none;align-items:center;gap:6px;padding:5px 10px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:var(--rsm);font-size:.68rem;color:#f87171;margin:0 0 4px">⚠ Acceptance criteria recommended before advancing to ready or beyond</div>
     <div style="display:grid;gap:12px;padding:0 0 10px;max-height:75vh;overflow-y:auto">
       <div><label style="font-size:.68rem;color:var(--mut);display:block;margin-bottom:3px">Title *</label>
         <input id="NT_TITLE" class="ai" placeholder="What needs to be done?" style="width:100%"></div>
@@ -199,6 +201,9 @@ function openNewTaskForm(){
   (typeof missionsLocal!=='undefined'?missionsLocal:[]).forEach(m=>{const o=mk('option','');o.value=m.id;o.textContent=m.title;missSel.appendChild(o);});
   const sprintSel=document.getElementById('NT_SPRINT');
   (typeof SPRINTS!=='undefined'?SPRINTS:[]).forEach(s=>{const o=mk('option','');o.value=s.id;o.textContent=s.name||s.id;sprintSel.appendChild(o);});
+  const ntStatus=document.getElementById('NT_STATUS');
+  const ntWarn=document.getElementById('NT_AC_WARN');
+  if(ntStatus&&ntWarn){ntStatus.addEventListener('change',function(){const adv=['ready','in_progress','validation'].includes(this.value);const hasAC=(document.getElementById('NT_AC')?.value.trim().length||0)>0;ntWarn.style.display=(adv&&!hasAC)?'flex':'none';});}
 }
 
 async function submitNewTaskModal(){
@@ -320,6 +325,8 @@ function openTaskEdit(taskId){
         <div><label style="font-size:.68rem;color:var(--mut);display:block;margin-bottom:3px">Acceptance Criteria</label>
           <textarea id="TE_AC" class="ai" rows="3" style="width:100%;resize:vertical">${esc((t.acceptance_criteria||[]).join('\n'))}</textarea></div>
       </div>
+      <div><label style="font-size:.68rem;color:var(--mut);display:block;margin-bottom:3px">Artifacts <span style="font-weight:400">(one per line: file paths, URLs, doc names)</span></label>
+        <textarea id="TE_ARTIFACTS" class="ai" rows="2" placeholder="e.g. workspace/myproject/docs/spec.md&#10;https://docs.example.com" style="width:100%;resize:vertical">${esc((t.artifacts||[]).join('\n'))}</textarea></div>
       <button class="sbb p" onclick="submitTaskEdit('${t.id}')">Save changes</button>
     </div>`;
   const sel=document.getElementById('TE_OWNER');
@@ -361,6 +368,8 @@ function submitTaskEdit(id){
   t.definition_of_done=dod?dod.split('\n').map(s=>s.trim()).filter(Boolean):t.definition_of_done;
   const acText=document.getElementById('TE_AC')?.value.trim()||'';
   t.acceptance_criteria=acText?acText.split('\n').map(s=>s.trim()).filter(Boolean):t.acceptance_criteria;
+  const artText=document.getElementById('TE_ARTIFACTS')?.value.trim()||'';
+  t.artifacts=artText?artText.split('\n').map(s=>s.trim()).filter(Boolean):t.artifacts||[];
   apiPost('/api/tasks/update',{
     id, title:t.title, description:t.description, status:t.status,
     priority:t.priority, story_points:t.story_points, owner:ownerId,
@@ -368,6 +377,7 @@ function submitTaskEdit(id){
     mission_id:t.mission_id, sprint_id:t.sprint_id,
     validation_owner:t.validation_owner, labels:t.labels,
     definition_of_done:t.definition_of_done, acceptance_criteria:t.acceptance_criteria,
+    artifacts:t.artifacts,
   });
   closeMo();renderBoard();refreshCounters();
   if(document.getElementById('V_pipeline')&&document.getElementById('V_pipeline').classList.contains('on'))renderPipeline();
@@ -407,4 +417,33 @@ async function deleteTaskFromModal(taskId){
   if(idx>=0)TASKS.splice(idx,1);
   try{await apiPost('/api/tasks/delete',{task_id:taskId});}catch(e){}
   renderPipeline();renderBoard();refreshCounters();
+}
+
+// ── Task templates ────────────────────────────────────────────────────────────
+async function openTemplateChooser(){
+  let templates=[];
+  try{const res=await fetch('/api/tasks/templates',{headers:{'Authorization':'Bearer '+(typeof API_TOKEN!=='undefined'?API_TOKEN:'')}});if(res.ok)templates=(await res.json()).templates||[];}catch(_){}
+  if(!templates.length){alert('No templates available (server offline)');return;}
+  const mo=document.getElementById('MO');mo.style.display='flex';
+  const mc=document.getElementById('MC');
+  mc.innerHTML=`<div class="mo-head"><span class="mo-title">Choose a template</span><button class="mo-x" onclick="closeMo()">×</button></div><div style="display:grid;gap:8px;padding:0 0 10px">${templates.map((tpl,i)=>`<div style="padding:10px 12px;border:1px solid var(--bd);border-radius:var(--rsm);cursor:pointer;background:var(--bg3)" onclick="applyTemplate(${i})"><div style="font-weight:700;color:var(--txs);font-size:.8rem">${tpl.name}</div><div style="font-size:.68rem;color:var(--mut);margin-top:2px">${tpl.specialist} · ${tpl.type} · ${tpl.priority}</div></div>`).join('')}</div>`;
+  mc._tplCache=templates;
+}
+
+function applyTemplate(idx){
+  const mc=document.getElementById('MC');
+  const tpl=(mc._tplCache||[])[idx];if(!tpl)return;
+  closeMo();openNewTaskForm();
+  requestAnimationFrame(()=>{
+    const setVal=(id,val)=>{const el=document.getElementById(id);if(el&&val!=null)el.value=val;};
+    setVal('NT_DESC',tpl.description||'');
+    setVal('NT_PRI',tpl.priority||'P1');
+    setVal('NT_TYPE',tpl.type||'task');
+    const acEl=document.getElementById('NT_AC');
+    const dodEl=document.getElementById('NT_DOD');
+    const labEl=document.getElementById('NT_LABELS');
+    if(acEl&&tpl.acceptance_criteria)acEl.value=tpl.acceptance_criteria.join('\n');
+    if(dodEl&&tpl.definition_of_done)dodEl.value=tpl.definition_of_done.join('\n');
+    if(labEl&&tpl.labels)labEl.value=tpl.labels.join(', ');
+  });
 }
