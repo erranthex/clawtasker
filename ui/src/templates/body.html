@@ -11,7 +11,7 @@
 <aside class="sb">
   <div class="sb-brand">
     <div class="sb-logo">CT<br><span style="font-size:8px">⚡</span></div>
-    <div><div class="sb-title">ClawTasker</div><div class="sb-sub">v1.5.0 · CEO Console</div></div>
+    <div><div class="sb-title">ClawTasker</div><div class="sb-sub">v1.6.0 · CEO Console</div></div>
   </div>
   <div class="nav-sec">
     <div class="nav-lbl">Operate</div>
@@ -41,9 +41,10 @@
   <div class="nav-sec">
     <div class="nav-lbl">Settings</div>
     <button class="nv" onclick="goV('app',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a9 9 0 0 0-12.73 0M4.93 19.07a9 9 0 0 0 12.73 0"/></svg><span>Appearance</span></button>
+    <button class="nv" id="NV_UPDATES" onclick="goV('updates',this)"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>Updates</span></button>
   </div>
   <div class="sb-foot">
-    <div class="sb-meta"><span style="display:flex;align-items:center;gap:5px"><span class="dot"></span>Live</span><span id="API_STATUS">API ✓</span></span><span id="VER_BADGE">v1.5.0</span></div>
+    <div class="sb-meta"><span style="display:flex;align-items:center;gap:5px"><span class="dot"></span>Live</span><span id="API_STATUS">API ✓</span></span><span id="VER_BADGE">v1.6.0</span></div>
     <button class="sbb p" onclick="openMissionForm(null)">+ New mission</button>
     <button class="sbb" onclick="alert('Set: CLAWTASKER_API_TOKEN env var before starting server.py')">Set token</button>
   </div>
@@ -54,7 +55,7 @@
   <div class="tb-cr"><span class="tbs" id="TB_S">Command Center</span><span class="tbsep">/</span><span class="tbp" id="TB_P">Dashboard</span></div>
   <div class="tb-r">
     <div class="pill live"><span class="dot"></span>Live · <span id="AGENT_COUNT_PILL">0</span> agents</div>
-    <div class="pill ver">v1.5.0</div>
+    <div class="pill ver">v1.6.0</div>
     <button id="NOTIF_BELL" onclick="toggleNotifDrawer()" style="position:relative;padding:5px 10px;border-radius:var(--rsm);border:1px solid var(--bd);background:var(--bg3);color:var(--mut);font-size:.82rem;cursor:pointer;transition:all .12s" title="Notifications">
       🔔<span id="NOTIF_BADGE" style="display:none;position:absolute;top:-3px;right:-3px;background:var(--dn);color:#fff;border-radius:50%;width:14px;height:14px;font-size:.55rem;font-weight:700;display:none;align-items:center;justify-content:center;line-height:1">0</span>
     </button>
@@ -493,7 +494,7 @@
 <div id="V_app" class="vw">
   <div class="g2">
     <div class="pn">
-      <div class="ph"><div><div class="ey">Theme palette</div><div class="pt">Official OpenClaw theme families</div></div><span class="chip">v1.5.0</span></div>
+      <div class="ph"><div><div class="ey">Theme palette</div><div class="pt">Official OpenClaw theme families</div></div><span class="chip">v1.6.0</span></div>
       <div class="pr-grid" id="PR_GRID"></div>
       <div class="ag">
         <div><span class="al">Mode</span><select class="ai" id="APP_MODE" onchange="applyMode()"><option value="dark" selected>Dark</option><option value="light">Light</option></select></div>
@@ -530,6 +531,49 @@
         <div class="ey" style="margin-bottom:6px">Character sprite — idle/frontal frame shown</div>
         <div class="picker-wrap" id="SP_PICKER"></div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- UPDATES -->
+<div id="V_updates" class="vw">
+  <div class="pn" style="max-width:640px">
+    <div class="ph">
+      <div><div class="ey">Platform Updates</div><div class="pt">Keep ClawTasker current — your data is always preserved during updates</div></div>
+    </div>
+    <!-- Version cards -->
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px">
+      <div class="card" style="flex:1;min-width:200px;padding:16px">
+        <div style="font-size:.68rem;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Installed version</div>
+        <div id="UPD_LOCAL_VER" style="font-size:1.4rem;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--ac)">–</div>
+      </div>
+      <div class="card" style="flex:1;min-width:200px;padding:16px">
+        <div style="font-size:.68rem;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Latest on GitHub</div>
+        <div id="UPD_GH_VER" style="font-size:1.4rem;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--txs)">–</div>
+        <div id="UPD_GH_DATE" style="font-size:.68rem;color:var(--mut);margin-top:4px"></div>
+      </div>
+    </div>
+    <!-- Status banner -->
+    <div id="UPD_STATUS_BANNER" style="display:none;padding:10px 14px;border-radius:var(--rsm);margin-bottom:16px;font-size:.8rem"></div>
+    <!-- Actions -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+      <button class="sbb" onclick="checkForUpdates()">Check for updates</button>
+      <button class="sbb p" id="UPD_BTN" onclick="triggerUpdate()" style="display:none">Update now</button>
+    </div>
+    <!-- Safety notice -->
+    <div class="card" style="padding:14px;font-size:.75rem;color:var(--mut);line-height:1.6">
+      <div style="font-weight:700;color:var(--txs);margin-bottom:6px">Safe update process</div>
+      <ol style="margin:0;padding-left:18px">
+        <li>Your data (<code>data/state.json</code>) is backed up to <code>data/state.pre-update.json</code> before anything changes</li>
+        <li><code>git pull origin main</code> pulls the latest code</li>
+        <li><code>python3 scripts/build_ui.py</code> rebuilds the UI</li>
+        <li>Reload the page — your agents, tasks, missions and all work are intact</li>
+      </ol>
+    </div>
+    <!-- Update log -->
+    <div id="UPD_LOG" style="margin-top:16px;display:none">
+      <div style="font-size:.72rem;font-weight:700;color:var(--txs);margin-bottom:8px">Update log</div>
+      <pre id="UPD_LOG_PRE" style="background:var(--bg3);border:1px solid var(--bds);border-radius:var(--rsm);padding:10px;font-size:.68rem;color:var(--mut);overflow-x:auto;white-space:pre-wrap;max-height:240px;overflow-y:auto"></pre>
     </div>
   </div>
 </div>

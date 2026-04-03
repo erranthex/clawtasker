@@ -251,6 +251,9 @@ img{display:block}
 .sp-btn:hover{border-color:var(--ac);color:var(--ac)}
 
 /* ── Calendar ── */
+.pipe-tab{padding:5px 14px;border-radius:var(--rsm);border:1px solid var(--bds);background:transparent;color:var(--mut);font-size:.77rem;font-weight:600;transition:all .12s;cursor:pointer}
+.pipe-tab:hover{background:var(--bgh);color:var(--tx)}
+.pipe-tab.on{background:linear-gradient(135deg,rgba(94,232,210,.15),rgba(107,163,255,.1));border-color:var(--ac);color:var(--ac)}
 .cal-vtabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
 .cal-vtab{padding:5px 14px;border-radius:var(--rsm);border:1px solid var(--bds);background:transparent;color:var(--mut);font-size:.77rem;font-weight:600;transition:all .12s}
 .cal-vtab:hover{background:var(--bgh);color:var(--tx)}

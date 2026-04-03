@@ -1,8 +1,29 @@
 // ── Live API wiring (Option A) ─────────────────────────────────────────────
 const POLL_MS = 15000;   // refresh every 15 s
 
-function applySnapshot(snap) {
-  // Populate the mutable globals the rest of the app reads
+// Snapshot fingerprinting — skip full DOM rebuild when data is unchanged
+let _lastSnapHash = null;
+function _hashSnap(snap) {
+  // Cheap but reliable: JSON stringify a stable subset of mutable data
+  try {
+    return JSON.stringify({
+      a: (snap.agents||[]).map(a=>a.id+a.status+a.derived_status),
+      t: (snap.tasks||[]).map(t=>t.id+t.status+(t.updated_at||'')),
+      m: (snap.missions||[]).map(m=>m.id+m.status),
+      s: (snap.sprints||[]).map(s=>s.id+(s.active?'1':'0')),
+      p: (snap.projects||[]).map(p=>p.id),
+      u: snap.unread_notifications||0,
+      ex: JSON.stringify(snap.exception_dashboard||{})
+    });
+  } catch(_) { return null; }
+}
+
+function applySnapshot(snap, force) {
+  const hash = _hashSnap(snap);
+  const changed = force || hash === null || hash !== _lastSnapHash;
+  _lastSnapHash = hash;
+
+  // Always update store (cheap, in-memory)
   if (snap.agents)   { AGENTS_DATA.length=0;   AGENTS_DATA.push(...snap.agents);   }
   if (snap.tasks)    { TASKS.length=0;          TASKS.push(...snap.tasks);          }
   if (snap.missions) { MISSIONS_DATA.length=0;  MISSIONS_DATA.push(...snap.missions); }
@@ -21,10 +42,13 @@ function applySnapshot(snap) {
     sprite: SPR[a.avatar_asset_id||a.avatar_ref||a.id] || SPR['ceo']
   }));
 
-  // Refresh the live counter badge
+  // Always refresh the notification badge (cheap DOM op, no flicker)
   const unread = snap.unread_notifications || 0;
   const badge = document.getElementById('NOTIF_BADGE');
   if (badge) badge.textContent = unread > 0 ? unread : '';
+
+  // Skip full DOM rebuild on background polls when data is unchanged
+  if (!changed) return;
 
   // Re-render everything
   buildDashboard();buildProjectHealth();buildActiveSprintCard();buildOrg();buildRoster();buildCapabilityMatrix();
@@ -45,7 +69,7 @@ async function loadSnapshot() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const snap = await res.json();
     if (loadEl) loadEl.style.display = 'none';
-    applySnapshot(snap);
+    applySnapshot(snap, true);  // force full render on initial load
   } catch (err) {
     console.info('[clawtasker] Running in standalone mode (no server). Using demo data.');
     if (loadEl) loadEl.style.display = 'none';
@@ -63,7 +87,7 @@ function startPolling() {
       const res = await fetch('/api/snapshot', {
         headers: { 'Authorization': 'Bearer ' + API_TOKEN }
       });
-      if (res.ok) applySnapshot(await res.json());
+      if (res.ok) applySnapshot(await res.json());  // skips rebuild when unchanged
     } catch (_) { /* silent — poll will retry */ }
   }, POLL_MS);
 }

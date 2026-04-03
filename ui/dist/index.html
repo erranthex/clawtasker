@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ClawTasker CEO Console v1.5.0</title>
+<title>ClawTasker CEO Console v1.6.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -260,6 +260,9 @@ img{display:block}
 .sp-btn:hover{border-color:var(--ac);color:var(--ac)}
 
 /* ── Calendar ── */
+.pipe-tab{padding:5px 14px;border-radius:var(--rsm);border:1px solid var(--bds);background:transparent;color:var(--mut);font-size:.77rem;font-weight:600;transition:all .12s;cursor:pointer}
+.pipe-tab:hover{background:var(--bgh);color:var(--tx)}
+.pipe-tab.on{background:linear-gradient(135deg,rgba(94,232,210,.15),rgba(107,163,255,.1));border-color:var(--ac);color:var(--ac)}
 .cal-vtabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
 .cal-vtab{padding:5px 14px;border-radius:var(--rsm);border:1px solid var(--bds);background:transparent;color:var(--mut);font-size:.77rem;font-weight:600;transition:all .12s}
 .cal-vtab:hover{background:var(--bgh);color:var(--tx)}
@@ -559,7 +562,7 @@ tr:hover td{background:var(--bgh)}
 <aside class="sb">
   <div class="sb-brand">
     <div class="sb-logo">CT<br><span style="font-size:8px">⚡</span></div>
-    <div><div class="sb-title">ClawTasker</div><div class="sb-sub">v1.5.0 · CEO Console</div></div>
+    <div><div class="sb-title">ClawTasker</div><div class="sb-sub">v1.6.0 · CEO Console</div></div>
   </div>
   <div class="nav-sec">
     <div class="nav-lbl">Operate</div>
@@ -589,9 +592,10 @@ tr:hover td{background:var(--bgh)}
   <div class="nav-sec">
     <div class="nav-lbl">Settings</div>
     <button class="nv" onclick="goV('app',this)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a9 9 0 0 0-12.73 0M4.93 19.07a9 9 0 0 0 12.73 0"/></svg><span>Appearance</span></button>
+    <button class="nv" id="NV_UPDATES" onclick="goV('updates',this)"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>Updates</span></button>
   </div>
   <div class="sb-foot">
-    <div class="sb-meta"><span style="display:flex;align-items:center;gap:5px"><span class="dot"></span>Live</span><span id="API_STATUS">API ✓</span></span><span id="VER_BADGE">v1.5.0</span></div>
+    <div class="sb-meta"><span style="display:flex;align-items:center;gap:5px"><span class="dot"></span>Live</span><span id="API_STATUS">API ✓</span></span><span id="VER_BADGE">v1.6.0</span></div>
     <button class="sbb p" onclick="openMissionForm(null)">+ New mission</button>
     <button class="sbb" onclick="alert('Set: CLAWTASKER_API_TOKEN env var before starting server.py')">Set token</button>
   </div>
@@ -602,7 +606,7 @@ tr:hover td{background:var(--bgh)}
   <div class="tb-cr"><span class="tbs" id="TB_S">Command Center</span><span class="tbsep">/</span><span class="tbp" id="TB_P">Dashboard</span></div>
   <div class="tb-r">
     <div class="pill live"><span class="dot"></span>Live · <span id="AGENT_COUNT_PILL">0</span> agents</div>
-    <div class="pill ver">v1.5.0</div>
+    <div class="pill ver">v1.6.0</div>
     <button id="NOTIF_BELL" onclick="toggleNotifDrawer()" style="position:relative;padding:5px 10px;border-radius:var(--rsm);border:1px solid var(--bd);background:var(--bg3);color:var(--mut);font-size:.82rem;cursor:pointer;transition:all .12s" title="Notifications">
       🔔<span id="NOTIF_BADGE" style="display:none;position:absolute;top:-3px;right:-3px;background:var(--dn);color:#fff;border-radius:50%;width:14px;height:14px;font-size:.55rem;font-weight:700;display:none;align-items:center;justify-content:center;line-height:1">0</span>
     </button>
@@ -1041,7 +1045,7 @@ tr:hover td{background:var(--bgh)}
 <div id="V_app" class="vw">
   <div class="g2">
     <div class="pn">
-      <div class="ph"><div><div class="ey">Theme palette</div><div class="pt">Official OpenClaw theme families</div></div><span class="chip">v1.5.0</span></div>
+      <div class="ph"><div><div class="ey">Theme palette</div><div class="pt">Official OpenClaw theme families</div></div><span class="chip">v1.6.0</span></div>
       <div class="pr-grid" id="PR_GRID"></div>
       <div class="ag">
         <div><span class="al">Mode</span><select class="ai" id="APP_MODE" onchange="applyMode()"><option value="dark" selected>Dark</option><option value="light">Light</option></select></div>
@@ -1078,6 +1082,49 @@ tr:hover td{background:var(--bgh)}
         <div class="ey" style="margin-bottom:6px">Character sprite — idle/frontal frame shown</div>
         <div class="picker-wrap" id="SP_PICKER"></div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- UPDATES -->
+<div id="V_updates" class="vw">
+  <div class="pn" style="max-width:640px">
+    <div class="ph">
+      <div><div class="ey">Platform Updates</div><div class="pt">Keep ClawTasker current — your data is always preserved during updates</div></div>
+    </div>
+    <!-- Version cards -->
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px">
+      <div class="card" style="flex:1;min-width:200px;padding:16px">
+        <div style="font-size:.68rem;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Installed version</div>
+        <div id="UPD_LOCAL_VER" style="font-size:1.4rem;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--ac)">–</div>
+      </div>
+      <div class="card" style="flex:1;min-width:200px;padding:16px">
+        <div style="font-size:.68rem;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Latest on GitHub</div>
+        <div id="UPD_GH_VER" style="font-size:1.4rem;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--txs)">–</div>
+        <div id="UPD_GH_DATE" style="font-size:.68rem;color:var(--mut);margin-top:4px"></div>
+      </div>
+    </div>
+    <!-- Status banner -->
+    <div id="UPD_STATUS_BANNER" style="display:none;padding:10px 14px;border-radius:var(--rsm);margin-bottom:16px;font-size:.8rem"></div>
+    <!-- Actions -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+      <button class="sbb" onclick="checkForUpdates()">Check for updates</button>
+      <button class="sbb p" id="UPD_BTN" onclick="triggerUpdate()" style="display:none">Update now</button>
+    </div>
+    <!-- Safety notice -->
+    <div class="card" style="padding:14px;font-size:.75rem;color:var(--mut);line-height:1.6">
+      <div style="font-weight:700;color:var(--txs);margin-bottom:6px">Safe update process</div>
+      <ol style="margin:0;padding-left:18px">
+        <li>Your data (<code>data/state.json</code>) is backed up to <code>data/state.pre-update.json</code> before anything changes</li>
+        <li><code>git pull origin main</code> pulls the latest code</li>
+        <li><code>python3 scripts/build_ui.py</code> rebuilds the UI</li>
+        <li>Reload the page — your agents, tasks, missions and all work are intact</li>
+      </ol>
+    </div>
+    <!-- Update log -->
+    <div id="UPD_LOG" style="margin-top:16px;display:none">
+      <div style="font-size:.72rem;font-weight:700;color:var(--txs);margin-bottom:8px">Update log</div>
+      <pre id="UPD_LOG_PRE" style="background:var(--bg3);border:1px solid var(--bds);border-radius:var(--rsm);padding:10px;font-size:.68rem;color:var(--mut);overflow-x:auto;white-space:pre-wrap;max-height:240px;overflow-y:auto"></pre>
     </div>
   </div>
 </div>
@@ -1185,7 +1232,7 @@ let boardFilterProj='', boardFilterSpec='';
 let EXCEPTION_DATA = {};
 let editingMissionId=null;
 
-const META={dash:{s:'Command Center',p:'Dashboard'},team:{s:'Operate',p:'Team'},council:{s:'Operate',p:'Council'},cal:{s:'Operate',p:'Calendar'},board:{s:'Work',p:'Board'},pipeline:{s:'Work',p:'Pipeline'},approvals:{s:'Work',p:'Approvals'},miss:{s:'Work',p:'Missions'},conv:{s:'Work',p:'Conversations'},off:{s:'Observe',p:'Office'},acc:{s:'Observe',p:'Access'},req:{s:'Quality',p:'Requirements'},tc:{s:'Quality',p:'Test Cases'},app:{s:'Settings',p:'Appearance'}};
+const META={dash:{s:'Command Center',p:'Dashboard'},team:{s:'Operate',p:'Team'},council:{s:'Operate',p:'Council'},cal:{s:'Operate',p:'Calendar'},board:{s:'Work',p:'Board'},pipeline:{s:'Work',p:'Pipeline'},approvals:{s:'Work',p:'Approvals'},miss:{s:'Work',p:'Missions'},conv:{s:'Work',p:'Conversations'},off:{s:'Observe',p:'Office'},acc:{s:'Observe',p:'Access'},req:{s:'Quality',p:'Requirements'},tc:{s:'Quality',p:'Test Cases'},app:{s:'Settings',p:'Appearance'},updates:{s:'Settings',p:'Updates'}};
 
 // ── Nav ────────────────────────────────────────────────────────────────────
 function goV(id,btn){
@@ -1199,6 +1246,28 @@ function goV(id,btn){
   // Lazy-init canvas office when office tab opens
   if(id==='off'&&typeof offInited!=='undefined'&&!offInited)
     setTimeout(initCanvasOffice,50);
+  // Load version info when updates tab opens
+  if(id==='updates'&&typeof buildUpdates==='function')
+    buildUpdates();
+}
+
+// ── Toast notifications ────────────────────────────────────────────────────
+function showToast(msg, type) {
+  // type: 'error' | 'success' | 'info'  (default: 'info')
+  let container = document.getElementById('TOAST_CONTAINER');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'TOAST_CONTAINER';
+    container.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none';
+    document.body.appendChild(container);
+  }
+  const t = document.createElement('div');
+  const colors = { error: '#e05555', success: '#5ec8a0', info: '#6ba3ff' };
+  const color = colors[type] || colors.info;
+  t.style.cssText = `background:var(--bg2,#1e2028);border:1px solid ${color};border-left:4px solid ${color};color:var(--tx,#e8eaf0);padding:10px 16px;border-radius:6px;font-size:.82rem;max-width:320px;pointer-events:auto;opacity:1;transition:opacity .4s`;
+  t.textContent = msg;
+  container.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 4000);
 }
 
 // ── Util ───────────────────────────────────────────────────────────────────
@@ -2378,7 +2447,14 @@ function submitTaskEdit(id){
 function apiPost(path,body){
   const tok=typeof API_TOKEN!=='undefined'?API_TOKEN:'';
   return fetch(path,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
-    body:JSON.stringify(body)}).then(r=>r.ok?r.json():r.json().then(e=>{throw new Error(e.error||'Server error');}));
+    body:JSON.stringify(body)}).then(r=>r.ok?r.json():r.json().then(e=>{
+      const msg=e.error||'Server error';
+      if(typeof showToast==='function') showToast('Error: '+msg,'error');
+      throw new Error(msg);
+    })).catch(err=>{
+      if(typeof showToast==='function') showToast('Request failed: '+(err.message||'network error'),'error');
+      throw err;
+    });
 }
 
 // ── Task comment ──────────────────────────────────────────────────────────────
@@ -4001,8 +4077,29 @@ function openOnboarding(){
 // ── Live API wiring (Option A) ─────────────────────────────────────────────
 const POLL_MS = 15000;   // refresh every 15 s
 
-function applySnapshot(snap) {
-  // Populate the mutable globals the rest of the app reads
+// Snapshot fingerprinting — skip full DOM rebuild when data is unchanged
+let _lastSnapHash = null;
+function _hashSnap(snap) {
+  // Cheap but reliable: JSON stringify a stable subset of mutable data
+  try {
+    return JSON.stringify({
+      a: (snap.agents||[]).map(a=>a.id+a.status+a.derived_status),
+      t: (snap.tasks||[]).map(t=>t.id+t.status+(t.updated_at||'')),
+      m: (snap.missions||[]).map(m=>m.id+m.status),
+      s: (snap.sprints||[]).map(s=>s.id+(s.active?'1':'0')),
+      p: (snap.projects||[]).map(p=>p.id),
+      u: snap.unread_notifications||0,
+      ex: JSON.stringify(snap.exception_dashboard||{})
+    });
+  } catch(_) { return null; }
+}
+
+function applySnapshot(snap, force) {
+  const hash = _hashSnap(snap);
+  const changed = force || hash === null || hash !== _lastSnapHash;
+  _lastSnapHash = hash;
+
+  // Always update store (cheap, in-memory)
   if (snap.agents)   { AGENTS_DATA.length=0;   AGENTS_DATA.push(...snap.agents);   }
   if (snap.tasks)    { TASKS.length=0;          TASKS.push(...snap.tasks);          }
   if (snap.missions) { MISSIONS_DATA.length=0;  MISSIONS_DATA.push(...snap.missions); }
@@ -4021,10 +4118,13 @@ function applySnapshot(snap) {
     sprite: SPR[a.avatar_asset_id||a.avatar_ref||a.id] || SPR['ceo']
   }));
 
-  // Refresh the live counter badge
+  // Always refresh the notification badge (cheap DOM op, no flicker)
   const unread = snap.unread_notifications || 0;
   const badge = document.getElementById('NOTIF_BADGE');
   if (badge) badge.textContent = unread > 0 ? unread : '';
+
+  // Skip full DOM rebuild on background polls when data is unchanged
+  if (!changed) return;
 
   // Re-render everything
   buildDashboard();buildProjectHealth();buildActiveSprintCard();buildOrg();buildRoster();buildCapabilityMatrix();
@@ -4045,7 +4145,7 @@ async function loadSnapshot() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const snap = await res.json();
     if (loadEl) loadEl.style.display = 'none';
-    applySnapshot(snap);
+    applySnapshot(snap, true);  // force full render on initial load
   } catch (err) {
     console.info('[clawtasker] Running in standalone mode (no server). Using demo data.');
     if (loadEl) loadEl.style.display = 'none';
@@ -4063,7 +4163,7 @@ function startPolling() {
       const res = await fetch('/api/snapshot', {
         headers: { 'Authorization': 'Bearer ' + API_TOKEN }
       });
-      if (res.ok) applySnapshot(await res.json());
+      if (res.ok) applySnapshot(await res.json());  // skips rebuild when unchanged
     } catch (_) { /* silent — poll will retry */ }
   }, POLL_MS);
 }
@@ -4262,6 +4362,119 @@ function runAllTests(){
   };
 })();
 
+// ── Updates view ─────────────────────────────────────────────────────────────
+
+function buildUpdates() {
+  // Called when the Updates tab is opened — loads version info from server
+  checkForUpdates();
+}
+
+async function checkForUpdates() {
+  const tok = typeof API_TOKEN !== 'undefined' ? API_TOKEN : '';
+  const banner = document.getElementById('UPD_STATUS_BANNER');
+  const btn = document.getElementById('UPD_BTN');
+  if (banner) { banner.style.display = 'none'; }
+  if (btn) btn.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/system/version', {
+      headers: { 'Authorization': 'Bearer ' + tok }
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+
+    const localEl = document.getElementById('UPD_LOCAL_VER');
+    const ghEl = document.getElementById('UPD_GH_VER');
+    const dateEl = document.getElementById('UPD_GH_DATE');
+    if (localEl) localEl.textContent = 'v' + (d.local_version || '–');
+    if (ghEl) {
+      ghEl.textContent = d.github_reachable ? ('v' + (d.github_version || '–')) : 'Unavailable';
+      ghEl.style.color = d.update_available ? 'var(--dn)' : 'var(--go)';
+    }
+    if (dateEl) dateEl.textContent = d.published_at ? ('Released: ' + d.published_at.slice(0, 10)) : '';
+
+    if (banner) {
+      banner.style.display = 'block';
+      if (!d.github_reachable) {
+        banner.style.background = 'rgba(94,130,232,.1)';
+        banner.style.border = '1px solid rgba(94,130,232,.3)';
+        banner.style.color = 'var(--txs)';
+        banner.textContent = 'GitHub is not reachable. Cannot check for updates — ensure you have internet access.';
+      } else if (d.update_available) {
+        banner.style.background = 'rgba(224,85,85,.1)';
+        banner.style.border = '1px solid rgba(224,85,85,.3)';
+        banner.style.color = 'var(--txs)';
+        banner.textContent = 'Update available: v' + d.github_version + ' — click "Update now" to upgrade safely.';
+        if (btn) btn.style.display = '';
+      } else {
+        banner.style.background = 'rgba(94,200,160,.1)';
+        banner.style.border = '1px solid rgba(94,200,160,.3)';
+        banner.style.color = 'var(--txs)';
+        banner.textContent = 'You are on the latest version.';
+      }
+    }
+  } catch (err) {
+    if (banner) {
+      banner.style.display = 'block';
+      banner.style.background = 'rgba(224,85,85,.1)';
+      banner.style.border = '1px solid rgba(224,85,85,.3)';
+      banner.style.color = 'var(--txs)';
+      banner.textContent = 'Could not reach server: running in standalone mode.';
+    }
+  }
+}
+
+async function triggerUpdate() {
+  const tok = typeof API_TOKEN !== 'undefined' ? API_TOKEN : '';
+  const btn = document.getElementById('UPD_BTN');
+  const log = document.getElementById('UPD_LOG');
+  const logPre = document.getElementById('UPD_LOG_PRE');
+  const banner = document.getElementById('UPD_STATUS_BANNER');
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+  if (log) log.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/system/update', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + tok
+      },
+      body: JSON.stringify({})
+    });
+    const d = await res.json();
+
+    // Build log text
+    const lines = (d.steps || []).map(s =>
+      (s.ok ? '✓' : '✗') + ' ' + s.step + ': ' + (s.detail || '')
+    ).join('\n');
+
+    if (logPre) logPre.textContent = lines;
+    if (log) log.style.display = 'block';
+
+    if (banner) {
+      banner.style.display = 'block';
+      if (d.ok) {
+        banner.style.background = 'rgba(94,200,160,.1)';
+        banner.style.border = '1px solid rgba(94,200,160,.3)';
+        banner.textContent = (d.message || 'Update complete.') + ' Reload to apply.';
+        if (btn) { btn.textContent = 'Reload page'; btn.disabled = false; btn.onclick = () => location.reload(); }
+      } else {
+        banner.style.background = 'rgba(224,85,85,.1)';
+        banner.style.border = '1px solid rgba(224,85,85,.3)';
+        banner.textContent = 'Update failed: ' + (d.error || 'Unknown error');
+        if (btn) { btn.textContent = 'Update now'; btn.disabled = false; }
+      }
+    }
+  } catch (err) {
+    if (banner) {
+      banner.style.display = 'block';
+      banner.textContent = 'Update request failed: ' + (err.message || 'network error');
+    }
+    if (btn) { btn.textContent = 'Update now'; btn.disabled = false; }
+  }
+}
 // ── ClawTasker CEO Console v1.5.0 — main.js ──────────────────────────────
 //
 // Module load order (concatenated by scripts/build_ui.py):

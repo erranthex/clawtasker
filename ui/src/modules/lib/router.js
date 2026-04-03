@@ -10,5 +10,8 @@ function goV(id,btn){
   // Lazy-init canvas office when office tab opens
   if(id==='off'&&typeof offInited!=='undefined'&&!offInited)
     setTimeout(initCanvasOffice,50);
+  // Load version info when updates tab opens
+  if(id==='updates'&&typeof buildUpdates==='function')
+    buildUpdates();
 }
 
