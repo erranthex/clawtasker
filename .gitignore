@@ -1,7 +1,13 @@
 .DS_Store
 __pycache__/
 *.pyc
+# All runtime data files — never committed, never lost during git pull
 data/state.json
 data/state.backup.json
 data/state.backup.prev.json
+data/state.pre-update.json
 data/event_log.jsonl
+# Catch-all for any future data files in this directory
+data/*.json
+data/*.jsonl
+data/*.tmp
